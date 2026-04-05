@@ -70,7 +70,7 @@ def train_phase1_tsjepa(model, train_loader, val_loader, max_epochs, device):
         param.requires_grad = False
     return model
 
-def train_phase2_decoder1(ts_jepa, decoder1, train_loader, val_loader, max_epochs, device):
+def train_phase1_decoder1(ts_jepa, decoder1, train_loader, val_loader, max_epochs, device):
     print("--- Phase 2: Training Decoder 1 (Deterministic) on RAW TRACES ---")
     optimizer = optim.Adam(decoder1.parameters(), lr=1e-3)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
@@ -296,18 +296,18 @@ def plot_umap(ts_jepa, val_loader, device):
     plt.close()
     print("Saved UMAP projection to results/umap_latent_space.png")
 
-def run_training_pipeline(max_epochs=100, batch_size=32):
+def run_training_pipeline(max_epochs=100, batch_size=32, num_samples=1500):
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    train_loader, val_loader = get_dataloaders(batch_size=batch_size, num_samples=1500, val_split=0.2)
+    train_loader, val_loader = get_dataloaders(batch_size=batch_size, num_samples=num_samples, val_split=0.2)
     
     ts_jepa = TSJEPA(in_channels=4).to(device)
     decoder1 = Decoder1(out_channels=4).to(device)
     decoder2 = Decoder2CVAE(in_channels=4).to(device)
-    
+        
     ts_jepa = train_phase1_tsjepa(ts_jepa, train_loader, val_loader, max_epochs, device)
-    decoder1 = train_phase2_decoder1(ts_jepa, decoder1, train_loader, val_loader, max_epochs, device)
+    decoder1 = train_phase1_decoder1(ts_jepa, decoder1, train_loader, val_loader, max_epochs, device)
     decoder2 = extract_residuals_and_train_decoder2(ts_jepa, decoder1, decoder2, train_loader, val_loader, max_epochs, device)
     plot_umap(ts_jepa, val_loader, device)
     evaluate_pipeline(ts_jepa, decoder1, decoder2, val_loader, device)

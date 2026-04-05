@@ -1,2 +1,6 @@
 # src/data/__init__.py
-from .synthetic_dataset import VibrationDataset, get_dataloaders
+
+# Uncomment to change between data sources
+
+# from .synthetic_dataset import get_dataloaders
+from .mafaulda_dataset import get_dataloaders

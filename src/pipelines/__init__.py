@@ -1,1 +1,1 @@
-from .train_phase2 import run_training_pipeline
+from .train_phase1 import run_training_pipeline

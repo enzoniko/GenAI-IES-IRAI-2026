@@ -14,7 +14,7 @@ def train_latent_diffusion(ts_jepa, ldm, scheduler, train_loader, val_loader, de
     
     optimizer = optim.Adam(ldm.parameters(), lr=1e-3)
     from torch.optim.lr_scheduler import ReduceLROnPlateau
-    from src.pipelines.train_phase2 import EarlyStopping
+    from src.pipelines.train_phase1 import EarlyStopping
     lr_scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
     early_stopping = EarlyStopping(patience=5)
     
