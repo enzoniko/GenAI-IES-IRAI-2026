@@ -76,7 +76,7 @@ def calibrate_oracle_targets(oracle, val_loader, device):
         if len(idx_1) > 0 and len(idx_2) > 0:
             break
 
-def run_phase3_pipeline(ldm_epochs, batch_size=32, num_samples=1500):
+def run_phase2_pipeline(ldm_epochs, batch_size=32, num_samples=1500):
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
     
@@ -138,4 +138,4 @@ if __name__ == "__main__":
     print("Starting Physics-Guided Counterfactual Fault Synthesis Pipeline Phase 3.")
     print(f"Configuration: LDM Epochs: {args.ldm_epochs}, Batch Size: {args.batch_size}, Samples: {args.num_samples}")
     
-    run_phase3_pipeline(ldm_epochs=args.ldm_epochs, batch_size=args.batch_size, num_samples=args.num_samples)
+    run_phase2_pipeline(ldm_epochs=args.ldm_epochs, batch_size=args.batch_size, num_samples=args.num_samples)
