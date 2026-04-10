@@ -93,7 +93,7 @@ def run_phase3_pipeline(ldm_epochs, batch_size=32, num_samples=1500):
     
     # 3. Instantiate Phase 3 Modules
     ldm = LatentDiffusionMLP(z_dim=128, time_dim=64).to(device)
-    oracle = PriorWorkOracle(in_channels=4, seq_len=5000, embed_dim=64).to(device)
+    oracle = PriorWorkOracle().to(device)
     scheduler = DDPMScheduler(num_train_timesteps=1000, device=device)
     
     # 4. Train LDM

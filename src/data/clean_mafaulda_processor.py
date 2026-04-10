@@ -1,9 +1,11 @@
 import pandas as pd
 import numpy as np
 import torch
+import sys
 from pathlib import Path
-from scipy.signal import butter, filtfilt
-from scipy.integrate import cumulative_trapezoid
+from scipy.fft import rfft, irfft, rfftfreq
+
+import src.constants as c
 
 class CleanMaFaulDaProcessor:
     """
@@ -11,9 +13,9 @@ class CleanMaFaulDaProcessor:
     Focused solely on extracting the necessary features for the PINN, integrating acceleration
     to obtain velocity and position, while mitigating integration drift (originating from Strategy D).
     """
-    def __init__(self, data_dir: str, output_dir: str, cutoff_hz: float = 2.0):
-        self.data_dir = Path(data_dir)
-        self.output_dir = Path(output_dir)
+    def __init__(self, raw_data_dir: str, processed_data_dir: str, cutoff_hz: float = 2.0):
+        self.raw_data_dir = Path(raw_data_dir)
+        self.processed_data_dir = Path(processed_data_dir)
         self.cutoff_hz = cutoff_hz
         self.fs = 50000
         self.dt = 1.0 / self.fs
@@ -29,10 +31,6 @@ class CleanMaFaulDaProcessor:
             'microphone'
         ]
         
-    def _butter_highpass_filter(self, data: np.ndarray) -> np.ndarray:
-        b, a = butter(4, self.cutoff_hz, btype='high', fs=self.fs)
-        return filtfilt(b, a, data)
-        
     def _linear_detrend(self, data: np.ndarray) -> np.ndarray:
         x = np.arange(len(data))
         coeffs = np.polyfit(x, data, 1)
@@ -45,33 +43,93 @@ class CleanMaFaulDaProcessor:
             hz_value = 0.0
         return hz_value * 2 * np.pi
 
+    # Now using FFT
     def process_signal(self, acc: np.ndarray) -> tuple:
         # 1. Zero-mean and linear trend removal (detrend)
         acc = acc - np.mean(acc)
         acc = self._linear_detrend(acc)
         
-        # 2. High-pass filter on acceleration (drift mitigation at the raw level)
-        acc_filt = self._butter_highpass_filter(acc)
+        # 2. Convert to Frequency Domain via Real FFT
+        n = len(acc)
+        acc_fft = rfft(acc)
+        freqs = rfftfreq(n, d=self.dt)
         
-        # 3. Integration to obtain velocity
-        vel = cumulative_trapezoid(acc_filt, dx=self.dt, initial=0)
+        # Compute angular frequency (omega)
+        omega = 2 * np.pi * freqs
+        omega[0] = 1.0  # Avoid division by zero at DC (0 Hz)
         
-        # 4. High-pass filter on velocity (corrects accumulated drift from the 1st integration)
-        vel_filt = self._butter_highpass_filter(vel)
+        # 3. Frequency domain integration
+        # Velocity = Acceleration / (j * omega)
+        vel_fft = acc_fft / (1j * omega)
+        # Position = Acceleration / (-omega^2)
+        pos_fft = acc_fft / (-(omega ** 2))
         
-        # 5. Integration to obtain position
-        pos = cumulative_trapezoid(vel_filt, dx=self.dt, initial=0)
+        # Strictly eliminate drift by setting the DC (0 Hz) and sub-cutoff bins to 0.0
+        low_freq_mask = freqs < self.cutoff_hz
+        acc_fft[low_freq_mask] = 0.0
+        vel_fft[low_freq_mask] = 0.0
+        pos_fft[low_freq_mask] = 0.0
+        
+        # 4. Convert back to Time Domain via Inverse Real FFT
+        acc_filt = irfft(acc_fft, n=n)
+        vel_filt = irfft(vel_fft, n=n)
+        pos = irfft(pos_fft, n=n)
         
         return acc_filt, vel_filt, pos
 
-    def run(self, category: str = 'normal'):
-        target_dir = self.data_dir / category
+    def run(self, category: str = 'normal', rotation: int = None,
+            training_windows: int = None, test_windows: int = None):
+        """
+        Process all CSV files for a given fault category and save the resulting tensors.
+
+        Parameters
+        ----------
+        category : str
+            Fault label to process ('normal', 'imbalance', 'overhang').
+        rotation : int | None
+            If given, restrict processing to the one CSV file whose filename
+            (Hz value) matches this integer.
+        training_windows : int | None
+            How many rotation windows to keep in the training set.
+            If None, defaults to 15% of all available windows (rounded).
+        test_windows : int | None
+            How many rotation windows to hold out as a temporally-disjoint test set.
+            These come from the CHRONOLOGICAL END of the recording so they are
+            guaranteed not to appear as neighbours of any training window.
+            If None, defaults to 3% of all available windows (rounded), minimum 1.
+        """
+        target_dir = self.raw_data_dir / category
         print(f"  Loading CSVs from directory: {target_dir}")
         
         csv_files = sorted(target_dir.glob("*.csv"))
         if not csv_files:
             print(f"  [Error] No CSV files found in {target_dir}")
             return
+        
+        # ── Rotation Frequency Filtering ─────────────────────────────────────
+        if rotation is not None:
+            target_rotation = int(rotation)
+            matched_files = []
+            for f in csv_files:
+                try:
+                    freq = float(f.stem)
+                    if int(freq) == target_rotation:
+                        matched_files.append((f, freq))
+                except ValueError:
+                    continue
+                    
+            if len(matched_files) == 0:
+                print(f"  [Error] No CSV file found with integer frequency {target_rotation} in {target_dir}")
+                sys.exit(1)
+            elif len(matched_files) == 1:
+                selected_file = matched_files[0][0]
+                print(f"  Found exactly one match for {target_rotation} Hz: {selected_file.name}")
+            else:
+                matched_files.sort(key=lambda x: abs(x[1] - target_rotation))
+                selected_file = matched_files[0][0]
+                print(f"  Found multiple matches for {target_rotation} Hz. Selected the closest: {selected_file.name}")
+                
+            csv_files = [selected_file]
 
         X_list, Y_list = [], []
 
@@ -87,8 +145,8 @@ class CleanMaFaulDaProcessor:
             
             # We only process the 4 channels of interest for the final Dataset
             for col in self.target_columns:
-                # We treat the input directly as acceleration
-                acc_raw = df[col].values
+                # Convert raw voltage to actual physical acceleration (m/s^2)
+                acc_raw = df[col].values / 0.0102
                 acc_filt, vel_filt, pos = self.process_signal(acc_raw)
                 
                 acc_list.append(acc_filt)
@@ -109,18 +167,87 @@ class CleanMaFaulDaProcessor:
             X_list.append(X)
             Y_list.append(Y)
 
-        # Standardizing the size by truncating all vectors to the shortest sequence found
-        min_len = min(x.shape[0] for x in X_list)
-        X_tensor = torch.tensor(np.stack([x[:min_len] for x in X_list]), dtype=torch.float32)
-        Y_tensor = torch.tensor(np.stack([y[:min_len] for y in Y_list]), dtype=torch.float32)
+        # ── Windowing ────────────────────────────────────────────────────────
+        # Extract the specific rotation frequency from the selected file
+        hz_value = float(csv_files[0].stem)
+        
+        # Calculate the integer window size for 1 full rotation
+        window_size = int(np.round(self.fs / hz_value))
+        print(f"  Calculated Window Size: {window_size} points per rotation at {hz_value} Hz")
 
-        out_path = self.output_dir / "v3"
+        X_3D_list, Y_3D_list = [], []
+
+        for X, Y in zip(X_list, Y_list):
+            # Find the largest multiple of window_size that fits in this array
+            max_valid_length = (X.shape[0] // window_size) * window_size
+            
+            # Slice off the remainder at the end of the file
+            X_sliced = X[:max_valid_length, :]
+            Y_sliced = Y[:max_valid_length, :]
+            
+            # Reshape from 2D into 3D: (Num_Windows, Window_Size, Features)
+            X_chunked = X_sliced.reshape(-1, window_size, X.shape[1])
+            Y_chunked = Y_sliced.reshape(-1, window_size, Y.shape[1])
+            
+            X_3D_list.append(X_chunked)
+            Y_3D_list.append(Y_chunked)
+
+        # Concatenate all files along the window dimension
+        X_all = np.concatenate(X_3D_list, axis=0)  # (N_total, window_size, 10)
+        Y_all = np.concatenate(Y_3D_list, axis=0)  # (N_total, window_size, 4)
+        N_total = X_all.shape[0]
+
+        # ── Training / Test Split ─────────────────────────────────────────────
+        # The test windows come from the CHRONOLOGICAL END of the recording.
+        # This guarantees temporal disjointness — no test window will be a
+        # direct neighbour of any training window.
+        if test_windows is None:
+            # Default: 3% of total windows, but at least 1
+            test_windows = max(1, int(round(N_total * 0.03)))
+        
+        if test_windows >= N_total:
+            raise ValueError(
+                f"test_windows ({test_windows}) >= total windows ({N_total}). "
+                "Reduce test_windows or process more data."
+            )
+
+        # Split indices chronologically
+        N_train_pool = N_total - test_windows   # windows available for training + val
+
+        # Cap the training pool if training_windows is explicitly given
+        if training_windows is not None:
+            if training_windows > N_train_pool:
+                print(f"  WARNING: training_windows ({training_windows}) > available "
+                      f"pool ({N_train_pool}). Using all available.")
+                training_windows = N_train_pool
+            # Take the first training_windows windows from the training pool
+            X_train_tensor = torch.tensor(X_all[:training_windows], dtype=torch.float32)
+            Y_train_tensor = torch.tensor(Y_all[:training_windows], dtype=torch.float32)
+        else:
+            # Default: 15% of total, but cap at the available training pool
+            default_train = min(int(round(N_total * 0.15)), N_train_pool)
+            X_train_tensor = torch.tensor(X_all[:default_train], dtype=torch.float32)
+            Y_train_tensor = torch.tensor(Y_all[:default_train], dtype=torch.float32)
+
+        # Test set: last test_windows windows (always from the chronological end)
+        X_test_tensor = torch.tensor(X_all[N_total - test_windows:], dtype=torch.float32)
+        Y_test_tensor = torch.tensor(Y_all[N_total - test_windows:], dtype=torch.float32)
+
+        # ── Save Tensors ─────────────────────────────────────────────────────
+        out_path = self.processed_data_dir / c.DATASET_CURRENT_VERSION
         out_path.mkdir(parents=True, exist_ok=True)
-        
-        x_save_path = out_path / f"X_{category}_v3.pth"
-        y_save_path = out_path / f"Y_{category}_v3.pth"
-        
-        torch.save(X_tensor, x_save_path)
-        torch.save(Y_tensor, y_save_path)
-        print(f"  Finished! Tensors saved to {out_path}")
-        print(f"  X shape: {X_tensor.shape} | Y shape: {Y_tensor.shape}")
+
+        # Training set tensors (used by PINN + TS-JEPA + Decoders)
+        torch.save(X_train_tensor, out_path / f"X_{category}_{c.DATASET_CURRENT_VERSION}_trainingset.pth")
+        torch.save(Y_train_tensor, out_path / f"Y_{category}_{c.DATASET_CURRENT_VERSION}_trainingset.pth")
+
+        # Test set tensors (held out for final evaluation — never touched during training)
+        torch.save(X_test_tensor, out_path / f"X_{category}_{c.DATASET_CURRENT_VERSION}_testset.pth")
+        torch.save(Y_test_tensor, out_path / f"Y_{category}_{c.DATASET_CURRENT_VERSION}_testset.pth")
+
+        print(f"  Finished processing '{category}':")
+        print(f"    Training set — X: {X_train_tensor.shape} | Y: {Y_train_tensor.shape}")
+        print(f"    Test set     — X: {X_test_tensor.shape} | Y: {Y_test_tensor.shape}")
+        print(f"    Saved to: {out_path}")
+
+

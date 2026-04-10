@@ -75,4 +75,34 @@ The `run_sdedit_phase2` iteration loop captures the dimensional state of $z_t$ d
 
 This visually validates how physics gradients explicitly bend the transformation path out of pure randomness into defined targeted clusters!
 
-Dataset link: https://www02.smt.ufrj.br/~offshore/mfs/page_01.html
+## Dataset
+
+The project uses the [MaFaulDa (Machinery Fault Database)](https://www02.smt.ufrj.br/~offshore/mfs/page_01.html). 
+
+| Condition | Download Link |
+| :--- | :--- |
+| **Normal (no fault)** | [normal.zip](https://www02.smt.ufrj.br/~offshore/mfs/database/mafaulda/normal.zip) |
+| **Horizontal Misalignment** | [horizontal-misalignment.zip](https://www02.smt.ufrj.br/~offshore/mfs/database/mafaulda/horizontal-misalignment.zip) |
+| **Vertical Misalignment** | [vertical-misalignment.zip](https://www02.smt.ufrj.br/~offshore/mfs/database/mafaulda/vertical-misalignment.zip) |
+| **Imbalance** | [imbalance.zip](https://www02.smt.ufrj.br/~offshore/mfs/database/mafaulda/imbalance.zip) |
+| **Underhang Bearing** | [underhang.zip](https://www02.smt.ufrj.br/~offshore/mfs/database/mafaulda/underhang.zip) |
+| **Overhang Bearing** | [overhang.zip](https://www02.smt.ufrj.br/~offshore/mfs/database/mafaulda/overhang.zip) |
+
+### Downloading the Dataset
+
+We provide a utility script to automate downloading and optionally extracting the datasets into the required `data/raw-mafaulda` directory structure.
+
+**Usage Examples:**
+```bash
+# Download all dataset zips
+./scripts/download_dataset.sh -all
+
+# Download only specific subsets
+./scripts/download_dataset.sh -normal -imbalance
+
+# Download all zip files and automatically extract their contents
+./scripts/download_dataset.sh -all -unzip
+```
+
+Installing torch just for CPU
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu

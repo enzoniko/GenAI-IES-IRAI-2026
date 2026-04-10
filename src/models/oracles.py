@@ -2,17 +2,21 @@ import torch
 import torch.nn as nn
 import sys
 import os
+import src.constants as c
 
 from .pinn import ConfigurablePINN, get_default_pinn_config
+from .feature_extractors import MathFeatureExtractor
 
 
 class PriorWorkOracle(nn.Module):
-    def __init__(self, in_channels=4, seq_len=5000, embed_dim=64):
+    def __init__(self, in_channels=4):
         super().__init__()
-        self.seq_len = seq_len
-        self.dt = 1.0 / 50000.0  # MaFaulDa 50kHz sampling rate
+        # Sampling rate for MaFaulDa (50 kHz). Used to convert samples -> time for kinematics.
+        self.dt = 1.0 / 50000.0
+        # Note: seq_len is NOT stored — the data pipeline uses full-rotation windowing
+        # (window_size = fs / rotation_hz), so L varies per batch. All ops here are length-agnostic.
         
-        # 1. Instantiate the Prior Work PINN
+        # 1. Instantiate the Physics-Informed Neural Network (PINN)
         pinn_config = get_default_pinn_config()
         self.pinn = ConfigurablePINN(
             unmeasured_net_config=pinn_config['unmeasured_net_config'],
@@ -21,16 +25,17 @@ class PriorWorkOracle(nn.Module):
             enable_mass_constraints=True
         )
         
-        # 2. Load the Weights (if available)
-        # If the file doesn't exist, it safely continues using random weights for structural testing
+        # 2. Load Pre-Trained PINN Weights (if available)
+        # If the checkpoint file doesn't exist, the oracle still runs with random weights
+        # (useful for structural/pipeline testing before Phase 0 is completed).
         
-        # Buffers for Phase 0 Min-Max Normalization bounds
+        # Normalization bounds — filled from the checkpoint saved at the end of Phase 0
         self.register_buffer('X_max', torch.ones(10))
         self.register_buffer('X_min', torch.zeros(10))
         self.register_buffer('y_max', torch.ones(4))
         self.register_buffer('y_min', torch.zeros(4))
 
-        weight_path = os.path.join(os.path.dirname(__file__), "../../results/relobralo_model.pth")
+        weight_path = os.path.join(os.path.dirname(__file__), "../../results/pinn.pth")
         if os.path.exists(weight_path):
             try:
                 ckpt = torch.load(weight_path, map_location='cpu', weights_only=True)
@@ -41,31 +46,34 @@ class PriorWorkOracle(nn.Module):
                     self.y_max.copy_(ckpt['y_max'])
                     self.y_min.copy_(ckpt['y_min'])
                 else:
-                    self.pinn.load_state_dict(ckpt)  # Fallback for old weights
+                    self.pinn.load_state_dict(ckpt)  # Fallback for old checkpoints without norm bounds
                 print("Successfully loaded prior PINN weights into the Oracle.")
             except RuntimeError:
                 print("PINN weights found but shape mismatched. Using initialized weights.")
         else:
             print("PINN weights not found. Using randomly initialized physics for structural testing.")
             
-        # 3. The Feature Extractor Projection
-        # The PINN evaluates 4 residual equations + 4 unmeasured parameters = 8 raw physics features.
-        # We project this 8D physics space into the LDM's requested embed_dim (e.g., 64).
-        self.physics_to_latent = nn.Sequential(
-            nn.Linear(8, 32),
-            nn.GELU(),
-            nn.Linear(32, embed_dim),
-            nn.Tanh()                # Embeddings bounded between -1 and 1
-        )
+        # 3. The Purely Mathematical, Differentiable Feature Extractor
+        # The PINN outputs 4 unmeasured force parameters + 4 physics residuals = 8 channels.
+        # MathFeatureExtractor computes time-domain statistics and FFT magnitudes from these
+        # 8 channels, producing a 2120-dim vector (8 * (9 time-stats + 256 FFT bins)).
+        # No learnable weights — fully deterministic and differentiable.
+        self.feature_extractor = MathFeatureExtractor(in_channels=8)
+        self.embed_dim = self.feature_extractor.output_dim  # 2120
 
-        # Initialize randomly and explicitly detach from gradient graph
+        # Freeze all parameters — the Oracle is a fixed physics evaluation tool,
+        # not something that should be updated during Phase 2 training.
         for param in self.parameters():
             param.requires_grad = False
             
-        # Target fault clusters mimicking a well-structured prior Latent Space
-        # 1: Imbalance, 2: Outer-Race
-        self.register_buffer('dist_class_1', torch.zeros(embed_dim))
-        self.register_buffer('dist_class_2', torch.zeros(embed_dim))
+        # Empirical reference embeddings for each fault class, used to compute the
+        # SDEdit guidance penalty (MSE between generated and target physics embeddings).
+        # 1 = Imbalance, 2 = Outer-Race
+        self.register_buffer('dist_class_1', torch.zeros(self.embed_dim))
+        self.register_buffer('dist_class_2', torch.zeros(self.embed_dim))
+        
+        # Rotational speed set externally by the diffusion loop (rad/s)
+        self.dynamic_omega = None
 
     def set_dynamic_omega(self, omega: torch.Tensor):
         """Allows the diffusion loop to set the expected physical rotational speed."""
@@ -83,15 +91,23 @@ class PriorWorkOracle(nn.Module):
         pos = torch.cumsum(vel, dim=-1) * self.dt
         return vel, pos
 
+    # IS THIS METHOD USED TO EXTRACT THE FEATURES?
     def forward(self, x):
         """
-        Input: (Batch, 4, 5000) physical raw trace
-        Output: (Batch, 64) embedding
+        Extracts physics-informed features from one full-rotation window of accelerometer data.
+
+        Input:  (Batch, 4, L) — 4-channel raw acceleration trace, where
+                  L = window_size = fs / rotation_Hz  (varies per rotation speed!).
+                  For example: L ≈ 2008 at 24.9 Hz, L = 1000 at 50 Hz.
+
+        Output: (Batch, embed_dim)  — embedding vector whose dimension depends on extractor_type:
+                  'conv1d' / 'fft' => fixed embed_dim (e.g. 64 or 1024)
+                  'math'           => 2120  (8 channels × (9 time-stats + 256 FFT bins))
         """
         B, C, L = x.shape
         
-        # 0. Restore physical scale from dataset soft-scaling (/ 20.0)
-        physical_acc = x * 20.0
+        # 0. Restore physical scale from dataset soft-scaling
+        physical_acc = x * c.PHYSICAL_SOFT_SCALE
         
         # 1. Differentiable Kinematics
         vel, pos = self.differentiable_integration(physical_acc)
@@ -132,9 +148,13 @@ class PriorWorkOracle(nn.Module):
         
         # 5. Form the final embedding
         physics_features = torch.cat([unmeasured, residuals], dim=-1) # Shape: (B*L, 8)
-        physics_features = physics_features.view(B, L, 8).mean(dim=1) # Pool over time -> (B, 8)
+
+        # Reshape to true sequence structure for deep extraction
+        # Result Shape: (Batch, Sequence Length, Channels)
+        physics_features = physics_features.view(B, L, 8)
         
-        return self.physics_to_latent(physics_features)
+        # Extract features differentiably across the time dimension!
+        return self.feature_extractor(physics_features)
         
     def set_target_distribution(self, target_class, empirical_embedding):
         """Allows main.py to set the actual reachable distribution"""
@@ -143,7 +163,6 @@ class PriorWorkOracle(nn.Module):
         elif target_class == 2:
             self.dist_class_2.copy_(empirical_embedding.detach())
 
-    
     def get_target_distribution(self, target_class):
         if target_class == 1:
             return self.dist_class_1

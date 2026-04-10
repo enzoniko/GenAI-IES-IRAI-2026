@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import random
-from .pinn import adaptive_custom_loss
+from .pinn import ConfigurablePINN # Note: adaptive_custom_loss moved here
 
 class ReLoBRaLoLoss(nn.Module):
     """
@@ -117,7 +117,10 @@ class ReLoBRaLoLoss(nn.Module):
         if not torch.isfinite(total_loss):
             return total_loss
         
+        # Zero gradients from previous step
         optimizer.zero_grad()
+
+        # Calculates how to change weights (backpropagation)
         total_loss.backward()
         
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -130,3 +133,81 @@ class ReLoBRaLoLoss(nn.Module):
                 break
         
         return total_loss
+
+def adaptive_custom_loss(model, x, y_true, X_max=None, X_min=None, y_max=None, y_min=None, debug=False):
+    """
+    Custom loss function that returns individual loss components for adaptive weighting.
+    Computes physics residuals using denormalized values for proper physics scaling.
+    
+    Parameters:
+    - model: The PINN model being trained
+    - x: Input data tensor (already normalized)
+    - y_true: Target output tensor (already normalized)
+    - X_max, X_min: Input normalization parameters (used for denormalization in physics)
+    - y_max, y_min: Output normalization parameters (used for denormalization in physics)
+    - debug: Whether to print debug information
+    
+    Returns:
+    - Tuple of individual loss components
+    """
+    try:
+        # Ensure double precision
+        x = x.double()
+        y_true = y_true.double()
+        
+        # Get model predictions (model expects normalized inputs)
+        y_pred = model(x)
+        
+        # Compute the data loss using RMSE on normalized values
+        data_loss = torch.sqrt(torch.mean((y_pred - y_true)**2) + 1e-12)
+        
+        # Compute physics-based residuals using denormalized values for proper physics
+        # Pass normalization parameters for denormalization in compute_residuals
+        residuals = model.compute_residuals(x, y_pred, X_max, X_min, y_max, y_min)
+        
+        # Extract and handle individual residuals
+        residual1, residual2, residual3, residual4, residualMass1, residualMass2 = residuals
+        
+        # Handle NaNs only (no clipping)
+        residual1 = torch.nan_to_num(residual1, nan=0.0)
+        residual2 = torch.nan_to_num(residual2, nan=0.0)
+        residual3 = torch.nan_to_num(residual3, nan=0.0)
+        residual4 = torch.nan_to_num(residual4, nan=0.0)
+        residualMass1 = torch.nan_to_num(residualMass1, nan=0.0)
+        residualMass2 = torch.nan_to_num(residualMass2, nan=0.0)
+        
+        # Compute individual RMSE losses for each residual
+        res1_loss = torch.sqrt(torch.mean(residual1**2) + 1e-12)
+        res2_loss = torch.sqrt(torch.mean(residual2**2) + 1e-12)
+        res3_loss = torch.sqrt(torch.mean(residual3**2) + 1e-12)
+        res4_loss = torch.sqrt(torch.mean(residual4**2) + 1e-12)
+        
+        # For synthetic data (enable_mass_constraints=False), mass residuals are zeros
+        # We should not include them in the loss computation to avoid constant losses
+        if model.enable_mass_constraints:
+            # For real data: compute actual mass constraint losses
+            resMass1_loss = torch.sqrt(torch.mean(residualMass1**2) + 1e-12)
+            resMass2_loss = torch.sqrt(torch.mean(residualMass2**2) + 1e-12)
+        else:
+            # For synthetic data: use zeros to maintain compatibility with training scripts
+            # but these won't affect the actual loss computation
+            resMass1_loss = torch.tensor(0.0, device=x.device, dtype=torch.float64, requires_grad=True)
+            resMass2_loss = torch.tensor(0.0, device=x.device, dtype=torch.float64, requires_grad=True)
+        
+        # Debug functionality has been moved to CSV logging system
+        
+        return data_loss, res1_loss, res2_loss, res3_loss, res4_loss, resMass1_loss, resMass2_loss
+    
+    except Exception as e:
+        # Fallback values in case of error
+        device = x.device
+        print(f"Error in adaptive_custom_loss: {e}")
+        return (
+            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
+            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
+            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
+            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
+            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
+            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
+            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True)
+        )

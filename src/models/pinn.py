@@ -254,6 +254,9 @@ class ConfigurablePINN(nn.Module):
         else:
             raise ValueError(f"Unsupported parameter initialization method: {method}")
 
+    """
+    Predicts the 4 accelerations and the 4 unmeasured physics parameters
+    """
     def forward(self, x):
         # Ensure input is double precision
         x = x.double()
@@ -311,42 +314,16 @@ class ConfigurablePINN(nn.Module):
         # Return the accelerations
         return torch.cat((x2_ddot, y2_ddot, x3_ddot, y3_ddot), dim=1)
     
-    def compute_residuals(self, x, pred, X_max=None, X_min=None, y_max=None, y_min=None):
+    def _denormalize_physical_variables(self, x, pred, X_max=None, X_min=None, y_max=None, y_min=None):
         """
-        Compute the physics-based residuals for the system.
-        
-        Parameters:
-        - x: Input tensor (batch_size, features) - NORMALIZED
-        - pred: Predicted accelerations (batch_size, 4) - NORMALIZED
-        - X_max, X_min: Input normalization parameters (used for denormalization)
-        - y_max, y_min: Output normalization parameters (used for denormalization)
-        
-        Returns:
-        - Tuple of residual tensors
+        Helper method to denormalize inputs and outputs for physical calculations.
+        Returns denormalized positions, velocities, accelerations, omega, and time.
         """
-        # Ensure double precision
-        x = x.double()
-        pred = pred.double()
-        
-        # Use clamped parameters for residual calculations
-        M1 = torch.clamp(self.M1, min=0.1)    
-        M2 = torch.clamp(self.M2, min=0.1)
-        M3 = torch.clamp(self.M3, min=0.1)
-        D1 = torch.clamp(self.D1, min=0.0)
-        D2 = torch.clamp(self.D2, min=0.0)
-        D3 = torch.clamp(self.D3, min=0.0)
-        K1 = torch.clamp(self.K1, min=1.0)  # Critical to prevent division by zero
-        K2 = torch.clamp(self.K2, min=0.1)
-        E1 = torch.clamp(self.E1, min=0.0)
-
         # Get predicted accelerations (normalized)
         x2_ddot, y2_ddot, x3_ddot, y3_ddot = torch.split(pred, 1, dim=1)
 
         # Get the input features (all normalized to [0,1])
         x2_dot, y2_dot, x3_dot, y3_dot, x2, y2, x3, y3, omega, t = torch.split(x, 1, dim=1)
-        
-        # Denormalize positions, velocities, and accelerations for physics equations
-        # Keep omega and t as real-world values (they should already be in correct units)
         
         # Denormalize positions (features 4-7: x2, y2, x3, y3)
         if X_max is not None and X_min is not None:
@@ -427,6 +404,45 @@ class ConfigurablePINN(nn.Module):
             x2_dot_denorm, y2_dot_denorm, x3_dot_denorm, y3_dot_denorm = x2_dot, y2_dot, x3_dot, y3_dot
             x2_ddot_denorm, y2_ddot_denorm, x3_ddot_denorm, y3_ddot_denorm = x2_ddot, y2_ddot, x3_ddot, y3_ddot
             omega_phys, t_phys = omega, t
+
+        return (x2_denorm, y2_denorm, x3_denorm, y3_denorm,
+                x2_dot_denorm, y2_dot_denorm, x3_dot_denorm, y3_dot_denorm,
+                x2_ddot_denorm, y2_ddot_denorm, x3_ddot_denorm, y3_ddot_denorm,
+                omega_phys, t_phys)
+
+    def compute_residuals(self, x, pred, X_max=None, X_min=None, y_max=None, y_min=None):
+        """
+        Compute the physics-based residuals for the system.
+        
+        Parameters:
+        - x: Input tensor (batch_size, features) - NORMALIZED
+        - pred: Predicted accelerations (batch_size, 4) - NORMALIZED
+        - X_max, X_min: Input normalization parameters (used for denormalization)
+        - y_max, y_min: Output normalization parameters (used for denormalization)
+        
+        Returns:
+        - Tuple of residual tensors
+        """
+        # Ensure double precision
+        x = x.double()
+        pred = pred.double()
+        
+        # Use clamped parameters for residual calculations
+        M1 = torch.clamp(self.M1, min=0.1)    
+        M2 = torch.clamp(self.M2, min=0.1)
+        M3 = torch.clamp(self.M3, min=0.1)
+        D1 = torch.clamp(self.D1, min=0.0)
+        D2 = torch.clamp(self.D2, min=0.0)
+        D3 = torch.clamp(self.D3, min=0.0)
+        K1 = torch.clamp(self.K1, min=1.0)  # Critical to prevent division by zero
+        K2 = torch.clamp(self.K2, min=0.1)
+        E1 = torch.clamp(self.E1, min=0.0)
+
+        # Denormalize inputs and outputs for physics equations
+        (x2_denorm, y2_denorm, x3_denorm, y3_denorm,
+         x2_dot_denorm, y2_dot_denorm, x3_dot_denorm, y3_dot_denorm,
+         x2_ddot_denorm, y2_ddot_denorm, x3_ddot_denorm, y3_ddot_denorm,
+         omega_phys, t_phys) = self._denormalize_physical_variables(x, pred, X_max, X_min, y_max, y_min)
         
         # Safely compute K2/K1 ratio (K1 is guaranteed to be at least 1.0)
         K2_K1_ratio = K2 / K1
@@ -436,6 +452,19 @@ class ConfigurablePINN(nn.Module):
         residual2 = K1*y2_denorm + K2*y3_denorm - M1*self.g + M1*omega_phys**2*E1*torch.sin(omega_phys*t_phys) - self.fB
         residual3 = M3*x3_ddot_denorm + D3*x3_dot_denorm + K2*x3_denorm - K2_K1_ratio*M2*x2_ddot_denorm - K2_K1_ratio*D2*x2_dot_denorm - K2*x2_denorm - self.fC
         residual4 = M3*y3_ddot_denorm + D3*y3_dot_denorm + K2*y3_denorm - K2_K1_ratio*M2*y2_ddot_denorm - K2_K1_ratio*D2*y2_dot_denorm - K2*y2_denorm - K2_K1_ratio*M2*self.g + M3*self.g - self.fD
+
+        # --- NON-DIMENSIONALIZATION (PHYSICS SCALING) ---
+        # The variables above like K1 generate magnitudes of O(10^6). When the network computes the raw loss (residual^2),
+        # these errors are in the millions, causing massive Gradient Pathology (exploding gradients) and completely blinding 
+        # the ReLoBRaLo balancer (which saturates due to numeric disproportion against the ~1.0 baseline data loss).
+        # We perform mathematical "Non-Dimensionalization" by dividing the differential equations by the characteristic scale (1e6).
+        # This rigorously maintains the Newtonian algebra (since 0 / 1e6 is still exactly 0) while pushing the residuals 
+        # to a well-conditioned mathematical range (O(0.1) - O(1.0)) for the Neural Optimizer!
+        force_scale = 1e6
+        residual1 = residual1 / force_scale
+        residual2 = residual2 / force_scale
+        residual3 = residual3 / force_scale
+        residual4 = residual4 / force_scale
 
         # Conditionally include mass constraints based on flag
         if self.enable_mass_constraints:
@@ -506,80 +535,5 @@ def get_synthetic_pinn_config():
         'enable_mass_constraints': False  # Disable mass constraints for synthetic data
     }
 
-def adaptive_custom_loss(model, x, y_true, X_max=None, X_min=None, y_max=None, y_min=None, debug=False):
-    """
-    Custom loss function that returns individual loss components for adaptive weighting.
-    Computes physics residuals using denormalized values for proper physics scaling.
-    
-    Parameters:
-    - model: The PINN model being trained
-    - x: Input data tensor (already normalized)
-    - y_true: Target output tensor (already normalized)
-    - X_max, X_min: Input normalization parameters (used for denormalization in physics)
-    - y_max, y_min: Output normalization parameters (used for denormalization in physics)
-    - debug: Whether to print debug information
-    
-    Returns:
-    - Tuple of individual loss components
-    """
-    try:
-        # Ensure double precision
-        x = x.double()
-        y_true = y_true.double()
-        
-        # Get model predictions (model expects normalized inputs)
-        y_pred = model(x)
-        
-        # Compute the data loss using RMSE on normalized values
-        data_loss = torch.sqrt(torch.mean((y_pred - y_true)**2) + 1e-12)
-        
-        # Compute physics-based residuals using denormalized values for proper physics
-        # Pass normalization parameters for denormalization in compute_residuals
-        residuals = model.compute_residuals(x, y_pred, X_max, X_min, y_max, y_min)
-        
-        # Extract and handle individual residuals
-        residual1, residual2, residual3, residual4, residualMass1, residualMass2 = residuals
-        
-        # Handle NaNs only (no clipping)
-        residual1 = torch.nan_to_num(residual1, nan=0.0)
-        residual2 = torch.nan_to_num(residual2, nan=0.0)
-        residual3 = torch.nan_to_num(residual3, nan=0.0)
-        residual4 = torch.nan_to_num(residual4, nan=0.0)
-        residualMass1 = torch.nan_to_num(residualMass1, nan=0.0)
-        residualMass2 = torch.nan_to_num(residualMass2, nan=0.0)
-        
-        # Compute individual RMSE losses for each residual
-        res1_loss = torch.sqrt(torch.mean(residual1**2) + 1e-12)
-        res2_loss = torch.sqrt(torch.mean(residual2**2) + 1e-12)
-        res3_loss = torch.sqrt(torch.mean(residual3**2) + 1e-12)
-        res4_loss = torch.sqrt(torch.mean(residual4**2) + 1e-12)
-        
-        # For synthetic data (enable_mass_constraints=False), mass residuals are zeros
-        # We should not include them in the loss computation to avoid constant losses
-        if model.enable_mass_constraints:
-            # For real data: compute actual mass constraint losses
-            resMass1_loss = torch.sqrt(torch.mean(residualMass1**2) + 1e-12)
-            resMass2_loss = torch.sqrt(torch.mean(residualMass2**2) + 1e-12)
-        else:
-            # For synthetic data: use zeros to maintain compatibility with training scripts
-            # but these won't affect the actual loss computation
-            resMass1_loss = torch.tensor(0.0, device=x.device, dtype=torch.float64, requires_grad=True)
-            resMass2_loss = torch.tensor(0.0, device=x.device, dtype=torch.float64, requires_grad=True)
-        
-        # Debug functionality has been moved to CSV logging system
-        
-        return data_loss, res1_loss, res2_loss, res3_loss, res4_loss, resMass1_loss, resMass2_loss
-    
-    except Exception as e:
-        # Fallback values in case of error
-        device = x.device
-        print(f"Error in adaptive_custom_loss: {e}")
-        return (
-            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
-            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
-            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
-            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
-            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
-            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True),
-            torch.tensor(1.0, device=device, dtype=torch.float64, requires_grad=True)
-        ) 
+
+ 
