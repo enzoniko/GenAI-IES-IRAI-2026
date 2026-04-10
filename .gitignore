@@ -4,5 +4,5 @@ src/models/__pycache__
 src/pipelines/__pycache__
 mafaulda-data
 previous-work-pinn
-*/__pycache__/
+data/
 __pycache__/
