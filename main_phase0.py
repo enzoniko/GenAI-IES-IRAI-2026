@@ -25,6 +25,8 @@ EPOCHS            = cfg.PHASE0_TRAIN_SETTINGS['epochs']
 BATCH_SIZE        = cfg.PHASE0_TRAIN_SETTINGS['batch_size']
 NUM_SAMPLES       = None   # set a small int for a dry run
 ROTATION          = cfg.PHASE0_TRAIN_SETTINGS['rotation_hz']
+TRAIN_WINDOWS     = cfg.PHASE0_TRAIN_SETTINGS['training_windows']
+TEST_WINDOWS      = cfg.PHASE0_TRAIN_SETTINGS['test_windows']
 PATIENCE          = cfg.PHASE0_TRAIN_SETTINGS['early_stop_patience']
 MIN_DELTA         = cfg.PHASE0_TRAIN_SETTINGS['early_stop_min_delta']
 
@@ -392,10 +394,10 @@ if __name__ == "__main__":
     parser.add_argument("--rotation",           type=int, default=ROTATION,
                         help="Rotation frequency (Hz) to select from the dataset")
     # New: explicit window counts for the data split
-    parser.add_argument("--training_windows",   type=int, default=None,
+    parser.add_argument("--training_windows",   type=int, default=TRAIN_WINDOWS,
                         help="Number of full-rotation windows for the training set "
                              "(default: 15%% of total windows)")
-    parser.add_argument("--test_windows",       type=int, default=None,
+    parser.add_argument("--test_windows",       type=int, default=TEST_WINDOWS,
                         help="Number of full-rotation windows held out for the test set "
                              "(default: 3%% of total windows, min 1). "
                              "Always taken from the chronological end of the recording.")

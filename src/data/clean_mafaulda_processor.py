@@ -4,6 +4,8 @@ import torch
 import sys
 from pathlib import Path
 from scipy.fft import rfft, irfft, rfftfreq
+from scipy.signal import butter, filtfilt
+from scipy.integrate import cumulative_trapezoid
 
 import src.configs as cfg
 
@@ -13,10 +15,12 @@ class CleanMaFaulDaProcessor:
     Focused solely on extracting the necessary features for the PINN, integrating acceleration
     to obtain velocity and position, while mitigating integration drift (originating from Strategy D).
     """
-    def __init__(self, raw_data_dir: str, processed_data_dir: str, cutoff_hz: float = 2.0):
+    def __init__(self, raw_data_dir: str, processed_data_dir: str, 
+                 cutoff_hz: float = None, strategy: str = None):
         self.raw_data_dir = Path(raw_data_dir)
         self.processed_data_dir = Path(processed_data_dir)
-        self.cutoff_hz = cutoff_hz
+        self.cutoff_hz = cutoff_hz or cfg.CUTOFF_HZ
+        self.strategy = strategy or cfg.SIGNAL_PROCESSING_STRATEGY
         self.fs = cfg.SAMPLING_RATE
         self.dt = 1.0 / self.fs
         
@@ -36,6 +40,11 @@ class CleanMaFaulDaProcessor:
         coeffs = np.polyfit(x, data, 1)
         return data - np.polyval(coeffs, x)
 
+    def _apply_filter(self, signal: np.ndarray, cutoff: float, order: int = 4) -> np.ndarray:
+        """Apply zero-phase Butterworth high-pass filter (SciPy filtfilt)."""
+        b, a = butter(order, cutoff, btype='high', fs=self.fs)
+        return filtfilt(b, a, signal)
+
     def _extract_omega(self, file_path: Path) -> float:
         try:
             hz_value = float(file_path.stem)
@@ -45,6 +54,14 @@ class CleanMaFaulDaProcessor:
 
     # Now using FFT
     def process_signal(self, acc: np.ndarray) -> tuple:
+        """Dispatcher for signal processing strategies."""
+        if self.strategy == 'previous_strategy':
+            return self._process_signal_previous(acc)
+        else:
+            return self._process_signal_fft(acc)
+
+    def _process_signal_fft(self, acc: np.ndarray) -> tuple:
+        """Original FFT-based integration (Pure Frequency Domain)."""
         # 1. Zero-mean and linear trend removal (detrend)
         acc = acc - np.mean(acc)
         acc = self._linear_detrend(acc)
@@ -76,6 +93,104 @@ class CleanMaFaulDaProcessor:
         pos = irfft(pos_fft, n=n)
         
         return acc_filt, vel_filt, pos
+
+    def _process_signal_previous(self, acc_np: np.ndarray) -> tuple:
+        """
+        Differentiable reproduction of Strategy D (Previous Strategy).
+        
+        --- DIFFERENTIABILITY EXPLANATION ---
+        This method is now completely differentiable because:
+        1. It replaces NumPy operations with PyTorch counterparts (torch.cumsum, linalg.lstsq).
+        2. It implements the IIR filter (Butterworth) using a forward-backward pass 
+           (filtfilt) in PyTorch, allowing Autograd to track the gradients through 
+           the recursive filtering operation.
+        3. This enables the entire preprocessing pipeline to be part of a 
+           larger differentiable chain (e.g., if we want to learn filter 
+           cutoffs or use this logic inside a PINN loss).
+
+        --- STRATEGY D INTENTION REPRODUCTION ---
+        Strategy D's core innovation was the 'Double-Filter' approach:
+        1. ACCEL FILTER: First high-pass to remove low-frequency gravity bias.
+        2. VELOCITY FILTER: Second high-pass after integration. This kills 
+           the integration constants and the 'random walk' drift that naturally 
+           emerges when integrating even slightly noisy acceleration.
+        -------------------------------------
+        """
+        # Move to Torch tensor to enable differentiability
+        # USE DOUBLE PRECISION (float64) for internal processing
+        # 4th order IIR filters with extremely low cutoffs (2Hz @ 50kHz) 
+        # are numerically unstable in 32-bit float precision.
+        acc = torch.from_numpy(acc_np).double()
+        
+        # STEP 1: CONDITIONING (Zero-mean + Detrend)
+        # Why: Remove stationary offsets and linear thermal drift.
+        acc = acc - acc.mean()
+        acc = self._torch_detrend(acc)
+        
+        # STEP 2: ACCELERATION FILTERING
+        # Why: Removes raw sensor tilt and low-frequency mechanical vibration 
+        # below the cutoff.
+        b_coef, a_coef = self._get_filter_coefs()
+        acc_filt = self._torch_filtfilt(acc, b_coef, a_coef)
+        
+        # STEP 3: INTEGRATION -> VELOCITY
+        # Why: Convert Accel to Velocity using trapezoidal rule.
+        vel = self._torch_integrate(acc_filt)
+        
+        # STEP 4: VELOCITY FILTERING (The critical Strategy D 'Second Filter')
+        # why: Integration generates a cumulative error curve. This high-pass 
+        # filter 're-centers' the velocity signal around zero, preventing 
+        # the position from exploding in step 5.
+        vel_filt = self._torch_filtfilt(vel, b_coef, a_coef)
+        
+        # STEP 5: INTEGRATION -> POSITION
+        # why: Final displacement extraction.
+        pos = self._torch_integrate(vel_filt)
+        
+        # Final cast back to float32 for model training/storage compatibility
+        return (acc_filt.float().detach().numpy(), 
+                vel_filt.float().detach().numpy(), 
+                pos.float().detach().numpy())
+
+    def _torch_detrend(self, y: torch.Tensor) -> torch.Tensor:
+        """Differentiable linear detrender using Least Squares."""
+        n = y.shape[-1]
+        # x coordinates normalized to [0,1]
+        x = torch.linspace(0, 1, n, device=y.device, dtype=y.dtype)
+        # Linear model matrix: [x, 1]
+        A = torch.stack([x, torch.ones_like(x)], dim=-1) 
+        # Least squares solve: (batch, n) inputs handled via unsqueeze
+        res = torch.linalg.lstsq(A, y.unsqueeze(-1))
+        slope, intercept = res.solution[..., 0, :], res.solution[..., 1, :]
+        trend = (slope * x + intercept).squeeze(-1)
+        return y - trend
+
+    def _torch_integrate(self, y: torch.Tensor) -> torch.Tensor:
+        """Differentiable trapezoidal integration."""
+        # Standard trapezoidal rule: area[i] = (y[i] + y[i-1])/2 * dt
+        y_mid = 0.5 * (y[..., 1:] + y[..., :-1])
+        integral = torch.cumsum(y_mid * self.dt, dim=-1)
+        # Pad leading zero to match initial sample time t=0
+        z = torch.zeros((*y.shape[:-1], 1), device=y.device, dtype=y.dtype)
+        return torch.cat([z, integral], dim=-1)
+
+    def _torch_filtfilt(self, x: torch.Tensor, b: torch.Tensor, a: torch.Tensor) -> torch.Tensor:
+        """Differentiable zero-phase IIR filtering (forward-backward)."""
+        import torchaudio.functional as F
+        # Forward pass through IIR recursive filter
+        y = F.lfilter(x, a, b, clamp=False)
+        # Flip, filter again, and flip back to ensure zero phase delay 
+        # (matching scipy.signal.filtfilt exactly)
+        y = torch.flip(y, dims=[-1])
+        y = F.lfilter(y, a, b, clamp=False)
+        y = torch.flip(y, dims=[-1])
+        return y
+
+    def _get_filter_coefs(self):
+        """Get Butterworth coefficients as Torch tensors in float64."""
+        from scipy.signal import butter
+        b, a = butter(4, self.cutoff_hz, btype='high', fs=self.fs)
+        return torch.from_numpy(b).double(), torch.from_numpy(a).double()
 
     def run(self, category: str = 'normal', rotation: int = None,
             training_windows: int = None, test_windows: int = None):
@@ -173,7 +288,7 @@ class CleanMaFaulDaProcessor:
         
         # Calculate the integer window size for 1 full rotation
         window_size = int(np.round(self.fs / hz_value))
-        print(f"  Calculated Window Size: {window_size} points per rotation at {hz_value} Hz")
+        print(f"  [Processor] Calculated Window Size: {window_size} samples/rotation (at {hz_value:.2f} Hz)")
 
         X_3D_list, Y_3D_list = [], []
 
@@ -196,6 +311,7 @@ class CleanMaFaulDaProcessor:
         X_all = np.concatenate(X_3D_list, axis=0)  # (N_total, window_size, 10)
         Y_all = np.concatenate(Y_3D_list, axis=0)  # (N_total, window_size, 4)
         N_total = X_all.shape[0]
+        print(f"  [Processor] Found total of {N_total} biological rotation windows across files.")
 
         # ── Training / Test Split ─────────────────────────────────────────────
         # The test windows come from the CHRONOLOGICAL END of the recording.
@@ -205,11 +321,15 @@ class CleanMaFaulDaProcessor:
             # Default: 3% of total windows, but at least 1
             test_windows = max(1, int(round(N_total * 0.03)))
         
+        # Safety Check: If test_windows is too large for the current file, 
+        # fall back to a 20% split to preserve training data integrity.
+        if test_windows >= N_total * 0.5:
+            print(f"  WARNING: Requested test_windows ({test_windows}) is too large for total data ({N_total}).")
+            test_windows = max(1, int(round(N_total * 0.2)))
+            print(f"  [Processor] Auto-adjusted test_windows to {test_windows} (20% of total).")
+        
         if test_windows >= N_total:
-            raise ValueError(
-                f"test_windows ({test_windows}) >= total windows ({N_total}). "
-                "Reduce test_windows or process more data."
-            )
+             raise ValueError(f"CRITICAL: test_windows ({test_windows}) >= N_total ({N_total}).")
 
         # Split indices chronologically
         N_train_pool = N_total - test_windows   # windows available for training + val

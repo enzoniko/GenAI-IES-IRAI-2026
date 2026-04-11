@@ -13,6 +13,11 @@ DATA_DIR_RAW = "data/raw-mafaulda/"
 DATA_DIR_PROCESSED = f"data/processed-mafaulda/{DATASET_VERSION}"
 RESULTS_DIR = "results"
 
+# Signal Processing Settings
+SIGNAL_PROCESSING_STRATEGY = 'previous_strategy'  # Options: 'fft', 'previous_strategy'
+# TO VERIFY THE PREVIOUS CUTOFF AND HOW IT WAS CALCULATED
+CUTOFF_HZ = 2.0  # Hz, for drift mitigation filtering
+
 NORM_METADATA_PATH = os.path.join(RESULTS_DIR, "normalization_metadata.pth")
 PINN_MODEL_PATH = os.path.join(RESULTS_DIR, "pinn.pth")
 JEPA_MODEL_PATH = os.path.join(RESULTS_DIR, "ts_jepa.pth")
@@ -27,6 +32,8 @@ PHASE0_TRAIN_SETTINGS = {
     'epochs': 100000,
     'batch_size': 128,
     'rotation_hz': 30,
+    'training_windows': 1000,
+    'test_windows': 20,
     'early_stop_patience': 15,
     'early_stop_min_delta': 1e-4,
     'learning_rate': 1e-4,
