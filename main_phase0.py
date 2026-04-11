@@ -13,7 +13,7 @@ import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader, Subset
 
 from src.data.clean_mafaulda_processor import CleanMaFaulDaProcessor
-from src.models.pinn import ConfigurablePINN, get_default_pinn_config
+from src.models.pinn import ConfigurablePINN
 from src.models.relobralo_loss import ReLoBRaLoLoss
 import src.configs as cfg
 
@@ -74,7 +74,7 @@ def _sequential_split(dataset, val_fraction=0.2):
       train indices: 1, 2, 3, 4,  6, 7, 8, 9,  11, ...
     """
     N = len(dataset)
-    k = max(2, round(1.0 / val_fraction))          # distance between val samples
+    k = max(2, round(1.0 / val_fraction))       # distance between val samples
     val_indices   = list(range(0, N, k))
     train_indices = [i for i in range(N) if i % k != 0]
     return Subset(dataset, train_indices), Subset(dataset, val_indices)
@@ -149,7 +149,7 @@ def step2_train_pinn_oracle(processed_data_dir, output_model_path,
     val_loader   = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False)
 
     # ── Initialize PINN & Optimizer ───────────────────────────────────────────
-    pinn_config = get_default_pinn_config()
+    pinn_config = cfg.PINN_ARCH_DEFAULT
     model = ConfigurablePINN(
         unmeasured_net_config=pinn_config['unmeasured_net_config'],
         acceleration_net_config=pinn_config['acceleration_net_config'],
@@ -298,7 +298,7 @@ def evaluate_on_test_set(processed_data_dir, model_weights,
     test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # ── Load Best Model ───────────────────────────────────────────────────────
-    pinn_config = get_default_pinn_config()
+    pinn_config = cfg.PINN_ARCH_DEFAULT
     model = ConfigurablePINN(
         unmeasured_net_config=pinn_config['unmeasured_net_config'],
         acceleration_net_config=pinn_config['acceleration_net_config'],

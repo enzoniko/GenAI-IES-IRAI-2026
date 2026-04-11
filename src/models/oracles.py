@@ -4,20 +4,20 @@ import sys
 import os
 import src.configs as cfg
 
-from .pinn import ConfigurablePINN, get_default_pinn_config
+from .pinn import ConfigurablePINN
 from .feature_extractors import MathFeatureExtractor
 
 
 class PriorWorkOracle(nn.Module):
     def __init__(self, in_channels=4):
         super().__init__()
-        # Sampling rate for MaFaulDa (50 kHz). Used to convert samples -> time for kinematics.
-        self.dt = 1.0 / 50000.0
+        # Sampling rate for MaFaulDa from centralized config. Used to convert samples -> time for kinematics.
+        self.dt = 1.0 / cfg.SAMPLING_RATE
         # Note: seq_len is NOT stored — the data pipeline uses full-rotation windowing
         # (window_size = fs / rotation_hz), so L varies per batch. All ops here are length-agnostic.
         
         # 1. Instantiate the Physics-Informed Neural Network (PINN)
-        pinn_config = get_default_pinn_config()
+        pinn_config = cfg.PINN_ARCH_DEFAULT
         self.pinn = ConfigurablePINN(
             unmeasured_net_config=pinn_config['unmeasured_net_config'],
             acceleration_net_config=pinn_config['acceleration_net_config'],
