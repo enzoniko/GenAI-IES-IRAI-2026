@@ -22,8 +22,8 @@ def test_math_extractor():
     
     print(f"Native Math Embedding Shape: {embeddings.shape}")
     
-    # Expected: 2120 dimensions (8 physical channels * (9 time + 256 freq bins))
-    expected_dim = 8 * (9 + 256)
+    # Expected: 2240 dimensions (8 physical channels * (9 time + 256 freq bins + 15 wavelet features))
+    expected_dim = 8 * (9 + 256 + 15)
     assert embeddings.shape[-1] == expected_dim, f"Dimension mismatch! Got {embeddings.shape[-1]} but expected {expected_dim}"
     print(f"Dimension check passed! Size matches math structural calculations ({expected_dim}).")
     

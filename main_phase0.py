@@ -21,7 +21,7 @@ import src.constants as c
 RAW_DATA_DIR      = "data/raw-mafaulda/"
 PROCESSED_DATA_DIR = "data/processed-mafaulda/"
 PINN_MODEL_PATH   = "results/pinn.pth"
-EPOCHS            = 100
+EPOCHS            = 100000000
 BATCH_SIZE        = 256
 NUM_SAMPLES       = None   # set a small int for a dry run
 ROTATION          = 12     # specific rotation frequency (Hz) to pick from the dataset
