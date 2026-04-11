@@ -56,7 +56,7 @@ class MaFaulDaDataset(Dataset):
         print(f"Loading pre-processed datasets from {root_dir}...")
         
         # Load normalization metadata for consistent Min-Max scaling
-        norm_path = os.path.join(root_dir, "../../results/normalization_metadata.pth")
+        norm_path = cfg.NORM_METADATA_PATH
         if not os.path.exists(norm_path):
             print(f"  WARNING: Normalization metadata not found at {norm_path}.")
             print("  Reverting to identity scaling (raw values). Run Phase 0 to generate metadata!")
@@ -64,6 +64,7 @@ class MaFaulDaDataset(Dataset):
         else:
             metadata = torch.load(norm_path, map_location='cpu', weights_only=True)
             y_min, y_max = metadata['y_min'], metadata['y_max']
+            X_min, X_max = metadata['X_min'], metadata['X_max']
             print(f"  Successfully loaded normalization bounds from {norm_path}")
         
         # Scan directories and build the memory tensors
@@ -86,7 +87,15 @@ class MaFaulDaDataset(Dataset):
                 
                 # Apply Unified Min-Max Normalization instead of legacy soft-scaling
                 if metadata is not None:
+                    # Normalize Target Y (Acceleration)
                     y_tensor = (y_tensor - y_min.view(1, 4, 1)) / (y_max.view(1, 4, 1) - y_min.view(1, 4, 1) + 1e-12)
+                    
+                    # Normalize Input X (Velocity and Position)
+                    # We transpose X to (Channels, Length) for broadcasting if needed, 
+                    # but index-based indexing is safer here for the 10 columns.
+                    # Column indices: 0-3 (Vel), 4-7 (Pos), 8 (Omega), 9 (Time)
+                    for col in range(8): # Only normalize Vel and Pos
+                        x_tensor[:, :, col] = (x_tensor[:, :, col] - X_min[col]) / (X_max[col] - X_min[col] + 1e-12)
                 
                 traces_list.append(y_tensor)
                 labels_list.append(torch.full((y_tensor.shape[0],), label_idx, dtype=torch.long))
