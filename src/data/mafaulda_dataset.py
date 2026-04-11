@@ -3,7 +3,7 @@ from torch.utils.data import Dataset, DataLoader, Subset
 import os
 import glob
 import pandas as pd
-import src.constants as c
+import src.configs as cfg
 
 class BatchTuple(tuple):
     """
@@ -55,11 +55,19 @@ class MaFaulDaDataset(Dataset):
         
         print(f"Loading pre-processed datasets from {root_dir}...")
         
+        # Load normalization metadata for consistent Min-Max scaling
+        norm_path = os.path.join(root_dir, "../../results/normalization_metadata.pth")
+        if not os.path.exists(norm_path):
+            print(f"  WARNING: Normalization metadata not found at {norm_path}.")
+            print("  Reverting to identity scaling (raw values). Run Phase 0 to generate metadata!")
+            metadata = None
+        else:
+            metadata = torch.load(norm_path, map_location='cpu', weights_only=True)
+            y_min, y_max = metadata['y_min'], metadata['y_max']
+            print(f"  Successfully loaded normalization bounds from {norm_path}")
+        
         # Scan directories and build the memory tensors
         for category, label_idx in label_mapping.items():
-            # Search for the trainingset tensors produced by CleanMaFaulDaProcessor.
-            # The _trainingset suffix marks tensors intended for training + validation;
-            # the _testset tensors are held out and never loaded here.
             y_files = glob.glob(os.path.join(root_dir, f"Y_{category}_*_trainingset.pth"))
             x_files = glob.glob(os.path.join(root_dir, f"X_{category}_*_trainingset.pth"))
             
@@ -76,9 +84,9 @@ class MaFaulDaDataset(Dataset):
                 # It is constant across the window, so we just take the first element's omega
                 omega_vals = x_tensor[:, 0, 8].float()
                 
-                # Physical Soft-Scaling (to roughly [-1, 1] for stable NN convergence)
-                # Note: clean_mafaulda_processor already converted voltage to m/s^2!
-                y_tensor = y_tensor / c.PHYSICAL_SOFT_SCALE
+                # Apply Unified Min-Max Normalization instead of legacy soft-scaling
+                if metadata is not None:
+                    y_tensor = (y_tensor - y_min.view(1, 4, 1)) / (y_max.view(1, 4, 1) - y_min.view(1, 4, 1) + 1e-12)
                 
                 traces_list.append(y_tensor)
                 labels_list.append(torch.full((y_tensor.shape[0],), label_idx, dtype=torch.long))

@@ -5,12 +5,13 @@ Phase 1 - Modular Training and Component Freezing
 '''
 
 import argparse
+import src.configs as cfg
 from src.pipelines import run_training_pipeline
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Phase 2: Physics-Guided Counterfactual Fault Synthesis")
-    parser.add_argument("--max_epochs", type=int, default=100, help="Maximum epochs per training phase")
-    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for dataloader")
+    parser.add_argument("--max_epochs", type=int, default=cfg.PHASE1_TRAIN_SETTINGS['max_epochs'], help="Maximum epochs per training phase")
+    parser.add_argument("--batch_size", type=int, default=cfg.PHASE1_TRAIN_SETTINGS['batch_size'], help="Batch size for dataloader")
     parser.add_argument("--num_samples", type=int, default=1500, help="Total samples to load (reduce for quick structural debug)")
     
     args = parser.parse_args()

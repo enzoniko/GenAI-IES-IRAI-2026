@@ -3,6 +3,5 @@ src/data/__pycache__
 src/models/__pycache__
 src/pipelines/__pycache__
 mafaulda-data
-previous-work-pinn
-data/
 __pycache__/
+/data

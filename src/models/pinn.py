@@ -12,8 +12,7 @@ import sys
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader, TensorDataset
 
-# Fix import path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import src.configs as cfg
 
 class ConfigurableMLP(nn.Module):
     """
@@ -131,30 +130,13 @@ class ConfigurablePINN(nn.Module):
         
         # Default configurations if not provided
         if unmeasured_net_config is None:
-            unmeasured_net_config = {
-                'hidden_layers': [64, 64],
-                'activation': 'tanh',
-                'dropout_rate': 0.0,
-                'init_method': 'xavier_normal'
-            }
+            unmeasured_net_config = cfg.PINN_ARCH_DEFAULT['unmeasured_net_config']
             
         if acceleration_net_config is None:
-            acceleration_net_config = {
-                'hidden_layers': [64, 64],
-                'activation': 'tanh',
-                'dropout_rate': 0.0,
-                'init_method': 'xavier_normal'
-            }
+            acceleration_net_config = cfg.PINN_ARCH_DEFAULT['acceleration_net_config']
             
         if param_init_config is None:
-            param_init_config = {
-                'method': 'fixed',
-                'values': {
-                    'M1': 50.0, 'M2': 3.5, 'M3': 3.5,
-                    'D1': 3000.0, 'D2': 3000.0, 'D3': 3000.0,
-                    'K1': 3.4635e6, 'K2': 3.8127e6, 'E1': 5.0e-6
-                }
-            }
+            param_init_config = cfg.PINN_ARCH_DEFAULT['param_init_config']
 
         # Network for estimating unmeasured parameters (15 inputs, 4 outputs)
         self.NNforUnmeasured = ConfigurableMLP(
@@ -180,7 +162,7 @@ class ConfigurablePINN(nn.Module):
         self._initialize_physical_parameters(param_init_config)
         
         # Register gravity constant as a buffer so it follows the model's device
-        self.register_buffer('g', torch.tensor(9.81, dtype=torch.float64))
+        self.register_buffer('g', torch.tensor(cfg.GRAVITY, dtype=torch.float64))
         
         # Convert model to double precision
         self.double()
@@ -482,58 +464,7 @@ class ConfigurablePINN(nn.Module):
             residualMass2 = torch.zeros_like(residual2)
             return residual1, residual2, residual3, residual4, residualMass1, residualMass2
 
-def get_default_pinn_config():
-    """Return the default configuration for a ConfigurablePINN model."""
-    return {
-        'unmeasured_net_config': {
-            'hidden_layers': [64, 64],
-            'activation': 'tanh',
-            'dropout_rate': 0.0,
-            'init_method': 'xavier_normal'
-        },
-        'acceleration_net_config': {
-            'hidden_layers': [64, 64],
-            'activation': 'tanh',
-            'dropout_rate': 0.0,
-            'init_method': 'xavier_normal'
-        },
-        'param_init_config': {
-            'method': 'fixed',
-            'values': {
-                'M1': 50.0, 'M2': 3.5, 'M3': 3.5,
-                'D1': 3000.0, 'D2': 3000.0, 'D3': 3000.0,
-                'K1': 3.4635e6, 'K2': 3.8127e6, 'E1': 5.0e-6
-            }
-        },
-        'enable_mass_constraints': True  # Default to True for backward compatibility
-    }
 
-def get_synthetic_pinn_config():
-    """Return the configuration for a ConfigurablePINN model optimized for synthetic data."""
-    return {
-        'unmeasured_net_config': {
-            'hidden_layers': [64, 64],
-            'activation': 'tanh',
-            'dropout_rate': 0.0,
-            'init_method': 'xavier_normal'
-        },
-        'acceleration_net_config': {
-            'hidden_layers': [64, 64],
-            'activation': 'tanh',
-            'dropout_rate': 0.0,
-            'init_method': 'xavier_normal'
-        },
-        'param_init_config': {
-            'method': 'fixed',
-            'values': {
-                'M1': 15.0, 'M2': 1.0, 'M3': 1.0,  # Masses from synthetic data
-                'D1': 100.0, 'D2': 100.0, 'D3': 700.0,  # Damping: Ds1, Ds2, Db
-                'K1': 1.2e6 + 5.0e6, 'K2': 1.2e6 + 5.0e6,  # Ks1 + Kb, Ks2 + Kb
-                'E1': 5.0e-5 / 15.0  # mu_eps / M1 (eccentricity)
-            }
-        },
-        'enable_mass_constraints': False  # Disable mass constraints for synthetic data
-    }
 
 
  

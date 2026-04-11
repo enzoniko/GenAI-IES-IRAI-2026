@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from scipy.fft import rfft, irfft, rfftfreq
 
-import src.constants as c
+import src.configs as cfg
 
 class CleanMaFaulDaProcessor:
     """
@@ -17,7 +17,7 @@ class CleanMaFaulDaProcessor:
         self.raw_data_dir = Path(raw_data_dir)
         self.processed_data_dir = Path(processed_data_dir)
         self.cutoff_hz = cutoff_hz
-        self.fs = 50000
+        self.fs = cfg.SAMPLING_RATE
         self.dt = 1.0 / self.fs
         
         self.target_columns = [
@@ -234,16 +234,16 @@ class CleanMaFaulDaProcessor:
         Y_test_tensor = torch.tensor(Y_all[N_total - test_windows:], dtype=torch.float32)
 
         # ── Save Tensors ─────────────────────────────────────────────────────
-        out_path = self.processed_data_dir / c.DATASET_CURRENT_VERSION
+        out_path = self.processed_data_dir
         out_path.mkdir(parents=True, exist_ok=True)
 
         # Training set tensors (used by PINN + TS-JEPA + Decoders)
-        torch.save(X_train_tensor, out_path / f"X_{category}_{c.DATASET_CURRENT_VERSION}_trainingset.pth")
-        torch.save(Y_train_tensor, out_path / f"Y_{category}_{c.DATASET_CURRENT_VERSION}_trainingset.pth")
+        torch.save(X_train_tensor, out_path / f"X_{category}_{cfg.DATASET_VERSION}_trainingset.pth")
+        torch.save(Y_train_tensor, out_path / f"Y_{category}_{cfg.DATASET_VERSION}_trainingset.pth")
 
         # Test set tensors (held out for final evaluation — never touched during training)
-        torch.save(X_test_tensor, out_path / f"X_{category}_{c.DATASET_CURRENT_VERSION}_testset.pth")
-        torch.save(Y_test_tensor, out_path / f"Y_{category}_{c.DATASET_CURRENT_VERSION}_testset.pth")
+        torch.save(X_test_tensor, out_path / f"X_{category}_{cfg.DATASET_VERSION}_testset.pth")
+        torch.save(Y_test_tensor, out_path / f"Y_{category}_{cfg.DATASET_VERSION}_testset.pth")
 
         print(f"  Finished processing '{category}':")
         print(f"    Training set — X: {X_train_tensor.shape} | Y: {Y_train_tensor.shape}")

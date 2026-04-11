@@ -5,19 +5,19 @@ import torch
 # Ensure we can import from src/
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.models.pinn import ConfigurablePINN, get_default_pinn_config
+import src.configs as cfg
+from src.models.pinn import ConfigurablePINN
 from src.models.relobralo_loss import ReLoBRaLoLoss, adaptive_custom_loss
-import src.constants as c
 
 def run_prediction_test():
     print("--- PINN Prediction Validation Test ---")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # Paths — load from the trainingset tensors (never from the held-out testset)
-    processed_data_dir = "data/processed-mafaulda"
-    x_path = os.path.join(processed_data_dir, c.DATASET_CURRENT_VERSION, f"X_normal_{c.DATASET_CURRENT_VERSION}_trainingset.pth")
-    y_path = os.path.join(processed_data_dir, c.DATASET_CURRENT_VERSION, f"Y_normal_{c.DATASET_CURRENT_VERSION}_trainingset.pth")
-    model_path = "results/pinn.pth"
+    processed_data_dir = cfg.DATA_DIR_PROCESSED
+    x_path = os.path.join(processed_data_dir, f"X_normal_{cfg.DATASET_VERSION}_trainingset.pth")
+    y_path = os.path.join(processed_data_dir, f"Y_normal_{cfg.DATASET_VERSION}_trainingset.pth")
+    model_path = cfg.PINN_MODEL_PATH
     
     if not os.path.exists(x_path):
         print(f"Dataset not found at {x_path}")
@@ -27,38 +27,55 @@ def run_prediction_test():
     X = torch.load(x_path, map_location='cpu', weights_only=True)
     Y = torch.load(y_path, map_location='cpu', weights_only=True)
     
-    # Grab just the first window to test
-    X = X[0:1].double() # shape: (1, seq, 10)
-    Y = Y[0:1].double() # shape: (1, seq, 4)
+    # Calculate GLOBAL bounds from the entire loaded tensors (important for correct scale!)
+    X_max = X.reshape(-1, 10).max(dim=0)[0].to(device)
+    X_min = X.reshape(-1, 10).min(dim=0)[0].to(device)
+    y_max = Y.reshape(-1, 4).max(dim=0)[0].to(device)
+    y_min = Y.reshape(-1, 4).min(dim=0)[0].to(device)
     
-    # Flatten
-    X = X.reshape(-1, 10)
-    Y = Y.reshape(-1, 4)
+    # Slice the first window ONLY AFTER calculating bounds
+    X_test = X[0:1].double().to(device) 
+    Y_test = Y[0:1].double().to(device)
     
-    # Model
-    pinn_config = get_default_pinn_config()
+    # Flatten for model
+    X_test = X_test.reshape(-1, 10)
+    Y_test = Y_test.reshape(-1, 4)
+    
+    # Model Architecture matching Trial 009
+    pinn_config = cfg.PINN_ARCH_DEFAULT
+    trial_009_config = {
+        'hidden_layers': [128, 128],
+        'activation': 'elu',
+        'dropout_rate': 0.24,
+        'init_method': 'xavier_uniform'
+    }
+    
     model = ConfigurablePINN(
-        unmeasured_net_config=pinn_config['unmeasured_net_config'],
-        acceleration_net_config=pinn_config['acceleration_net_config'],
+        unmeasured_net_config=trial_009_config,
+        acceleration_net_config=trial_009_config,
         param_init_config=pinn_config['param_init_config'],
         enable_mass_constraints=True
     ).to(device)
     
-    # Initialize bounds
-    X_max = X.max(dim=0)[0]
-    X_min = X.min(dim=0)[0]
-    y_max = Y.max(dim=0)[0]
-    y_min = Y.min(dim=0)[0]
-    
-    # Attempt to load weights AND the exact normalization bounds used during training
+    # Attempt to load weights
     if os.path.exists(model_path):
         print(f"Loading trained weights from {model_path}")
-        # Workaround since torch.load returns the raw dict containing weights
         try:
-            ckpt = torch.load(model_path, map_location=device, weights_only=True)
-            model.load_state_dict(ckpt['model_state_dict'])
-            X_max, X_min = ckpt['X_max'].to(device), ckpt['X_min'].to(device)
-            y_max, y_min = ckpt['y_max'].to(device), ckpt['y_min'].to(device)
+            ckpt = torch.load(model_path, map_location=device, weights_only=False)
+            
+            # Robust Loader: Check if it's a dict with metadata or just raw weights
+            if isinstance(ckpt, dict) and 'model_state_dict' in ckpt:
+                print("Detected dictionary checkpoint format.")
+                model.load_state_dict(ckpt['model_state_dict'])
+                # Override bounds if they are in the checkpoint
+                if 'X_max' in ckpt:
+                    X_max, X_min = ckpt['X_max'].to(device), ckpt['X_min'].to(device)
+                    y_max, y_min = ckpt['y_max'].to(device), ckpt['y_min'].to(device)
+            else:
+                print("Detected raw state_dict format (Importing from Trial 009).")
+                model.load_state_dict(ckpt)
+                # Global bounds already set from full X, Y tensors above
+                
         except Exception as e:
             print(f"Failed to load weights properly: {e}\nUsing randomized init.")
             X_max, X_min = X_max.to(device), X_min.to(device)
@@ -68,8 +85,8 @@ def run_prediction_test():
         X_max, X_min = X_max.to(device), X_min.to(device)
         y_max, y_min = y_max.to(device), y_min.to(device)
         
-    X_norm = (X.to(device) - X_min) / (X_max - X_min + 1e-12)
-    Y_norm = (Y.to(device) - y_min) / (y_max - y_min + 1e-12)
+    X_norm = (X_test.to(device) - X_min) / (X_max - X_min + 1e-12)
+    Y_norm = (Y_test.to(device) - y_min) / (y_max - y_min + 1e-12)
     
     model.eval()
     with torch.no_grad():
@@ -78,7 +95,7 @@ def run_prediction_test():
         
         # Denormalize predictions to get physical outputs (m/s^2)
         pred_phys = pred_norm * (y_max - y_min + 1e-12) + y_min
-        Y_phys = Y.to(device)
+        Y_phys = Y_test.to(device)
         
         # Calculate Machine Learning Important Values (Losses)
         loss_method = ReLoBRaLoLoss(enable_mass_constraints=True)

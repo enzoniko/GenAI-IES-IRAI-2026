@@ -4,6 +4,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import os
 
+import src.configs as cfg
 from src.models import LatentDiffusionMLP, PriorWorkOracle
 
 def train_latent_diffusion(ts_jepa, ldm, scheduler, train_loader, val_loader, device, epochs=50):
@@ -12,7 +13,7 @@ def train_latent_diffusion(ts_jepa, ldm, scheduler, train_loader, val_loader, de
     # Put JEPA in eval mode since it's frozen
     ts_jepa.eval()
     
-    optimizer = optim.Adam(ldm.parameters(), lr=1e-3)
+    optimizer = optim.Adam(ldm.parameters(), lr=cfg.PHASE2_TRAIN_SETTINGS['learning_rate'])
     from torch.optim.lr_scheduler import ReduceLROnPlateau
     from src.pipelines.train_phase1 import EarlyStopping
     lr_scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
@@ -82,13 +83,21 @@ def train_latent_diffusion(ts_jepa, ldm, scheduler, train_loader, val_loader, de
     return ldm
 
 def run_guided_sdedit(ts_jepa, decoder1, decoder2, ldm, oracle, scheduler, 
-                      healthy_trace, target_class_idx, val_loader, device, num_inference_steps=1000, 
-                      guidance_scale=10.0, strength=0.5):
+                      healthy_trace, target_class_idx, val_loader, device, 
+                      omega=None, 
+                      num_inference_steps=None, 
+                      guidance_scale=None, 
+                      strength=None):
     """
     healthy_trace: A raw healthy physical signal of shape (1, 4, 5000)
     target_class_idx: The fault class to synthesize (e.g., 2 for Outer-Race)
     val_loader: Dataloader containing validation set to map background UMAP clusters
+    omega: Physical rotational speed for the oracle
     """
+    # Pull defaults from centralized config
+    num_inference_steps = num_inference_steps or cfg.SDEDIT_GUIDANCE_SETTINGS['num_inference_steps']
+    guidance_scale = guidance_scale or cfg.SDEDIT_GUIDANCE_SETTINGS['guidance_scale']
+    strength = strength or cfg.SDEDIT_GUIDANCE_SETTINGS['strength']
     print(f"\n--- Running Guided SDEdit to Target Class: {target_class_idx} ---")
     
     ts_jepa.eval()
@@ -129,7 +138,7 @@ def run_guided_sdedit(ts_jepa, decoder1, decoder2, ldm, oracle, scheduler,
         
         # Pass through the physics graph
         pred_trace = decoder1(z_t)
-        pred_emb = oracle(pred_trace)
+        pred_emb = oracle(pred_trace, omega=omega)
         
         # Calculate constraint penalty
         penalty = mse_penalty(pred_emb.squeeze(0), target_distribution)
@@ -160,8 +169,8 @@ def run_guided_sdedit(ts_jepa, decoder1, decoder2, ldm, oracle, scheduler,
     print("SDEdit Counterfactual synthesized successfully.")
     
     # 5. Plot the result
-    os.makedirs("results", exist_ok=True)
-    t_ax = torch.linspace(0, 5000/50000, 5000).numpy()
+    os.makedirs(cfg.RESULTS_DIR, exist_ok=True)
+    t_ax = torch.linspace(0, 5000/cfg.SAMPLING_RATE, 5000).numpy()
     
     fig, axes = plt.subplots(4, 1, figsize=(10, 12))
     fig.suptitle(f"Phase 3: Physics-Guided Counterfactual Synthesis\nTransition: Healthy -> Class {target_class_idx}", fontsize=16)

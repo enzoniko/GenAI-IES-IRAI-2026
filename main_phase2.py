@@ -11,13 +11,14 @@ from src.models import TSJEPA, Decoder1, Decoder2CVAE, LatentDiffusionMLP, DDPMS
 from src.data import get_dataloaders
 from src.pipelines import run_training_pipeline
 from src.pipelines.run_sdedit_phase2 import train_latent_diffusion, run_guided_sdedit
+import src.configs as cfg
 
 def get_or_train_phase1_models(device, batch_size=32, num_samples=1500):
     # Check if Phase 1 checkpoints exist
     ckpts_exist = (
-        os.path.exists("results/ts_jepa.pth") and 
-        os.path.exists("results/decoder1.pth") and 
-        os.path.exists("results/decoder2.pth")
+        os.path.exists(cfg.JEPA_MODEL_PATH) and 
+        os.path.exists(cfg.DEC1_MODEL_PATH) and 
+        os.path.exists(cfg.DEC2_MODEL_PATH)
     )
     
     if ckpts_exist:
@@ -26,9 +27,9 @@ def get_or_train_phase1_models(device, batch_size=32, num_samples=1500):
         decoder1 = Decoder1(out_channels=4).to(device)
         decoder2 = Decoder2CVAE(in_channels=4).to(device)
         
-        ts_jepa.load_state_dict(torch.load("results/ts_jepa.pth", map_location=device, weights_only=True))
-        decoder1.load_state_dict(torch.load("results/decoder1.pth", map_location=device, weights_only=True))
-        decoder2.load_state_dict(torch.load("results/decoder2.pth", map_location=device, weights_only=True))
+        ts_jepa.load_state_dict(torch.load(cfg.JEPA_MODEL_PATH, map_location=device, weights_only=True))
+        decoder1.load_state_dict(torch.load(cfg.DEC1_MODEL_PATH, map_location=device, weights_only=True))
+        decoder2.load_state_dict(torch.load(cfg.DEC2_MODEL_PATH, map_location=device, weights_only=True))
         return ts_jepa, decoder1, decoder2
     else:
         print("Phase 2 checkpoints not found. Running Phase 2 Training Pipeline first (Max Epochs: 20 for speed)...")
@@ -92,9 +93,9 @@ def run_phase2_pipeline(ldm_epochs, batch_size=32, num_samples=1500):
     train_loader, val_loader = get_dataloaders(batch_size=batch_size, num_samples=num_samples, val_split=0.2)
     
     # 3. Instantiate Phase 3 Modules
-    ldm = LatentDiffusionMLP(z_dim=128, time_dim=64).to(device)
+    ldm = LatentDiffusionMLP(z_dim=cfg.JEPA_CONFIG['d_model'], time_dim=64).to(device)
     oracle = PriorWorkOracle().to(device)
-    scheduler = DDPMScheduler(num_train_timesteps=1000, device=device)
+    scheduler = DDPMScheduler(num_train_timesteps=cfg.SDEDIT_GUIDANCE_SETTINGS['num_inference_steps'], device=device)
     
     # 4. Train LDM
     ldm = train_latent_diffusion(ts_jepa, ldm, scheduler, train_loader, val_loader, device, epochs=ldm_epochs)
@@ -114,7 +115,10 @@ def run_phase2_pipeline(ldm_epochs, batch_size=32, num_samples=1500):
         ldm=ldm, oracle=oracle, scheduler=scheduler,
         healthy_trace=healthy_trace, target_class_idx=2,
         val_loader=val_loader, device=device,
-        num_inference_steps=1000, guidance_scale=0.5, strength=0.5
+        omega=healthy_omega,
+        num_inference_steps=cfg.SDEDIT_GUIDANCE_SETTINGS['num_inference_steps'], 
+        guidance_scale=cfg.SDEDIT_GUIDANCE_SETTINGS['guidance_scale'], 
+        strength=cfg.SDEDIT_GUIDANCE_SETTINGS['strength']
     )
     
     print("\n--- Initiating SDEdit Trajectory: Healthy -> Imbalance (Class 1) ---")
@@ -123,15 +127,18 @@ def run_phase2_pipeline(ldm_epochs, batch_size=32, num_samples=1500):
         ldm=ldm, oracle=oracle, scheduler=scheduler,
         healthy_trace=healthy_trace, target_class_idx=1,
         val_loader=val_loader, device=device,
-        num_inference_steps=1000, guidance_scale=0.5, strength=0.5
+        omega=healthy_omega,
+        num_inference_steps=cfg.SDEDIT_GUIDANCE_SETTINGS['num_inference_steps'], 
+        guidance_scale=cfg.SDEDIT_GUIDANCE_SETTINGS['guidance_scale'], 
+        strength=cfg.SDEDIT_GUIDANCE_SETTINGS['strength']
     )
 
     print("\nPhase 3 Execution Completed Successfully.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Phase 3: Physics-Guided Counterfactual Fault Synthesis loop")
-    parser.add_argument("--ldm_epochs", type=int, default=50, help="Epochs to train the Latent Diffusion Model")
-    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for dataloader")
+    parser.add_argument("--ldm_epochs", type=int, default=cfg.PHASE2_TRAIN_SETTINGS['ldm_epochs'], help="Epochs to train the Latent Diffusion Model")
+    parser.add_argument("--batch_size", type=int, default=cfg.PHASE1_TRAIN_SETTINGS['batch_size'], help="Batch size for dataloader")
     parser.add_argument("--num_samples", type=int, default=1500, help="Total samples to load (reduce for quick structural debug)")
     args = parser.parse_args()
     

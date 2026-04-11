@@ -15,18 +15,18 @@ from torch.utils.data import TensorDataset, DataLoader, Subset
 from src.data.clean_mafaulda_processor import CleanMaFaulDaProcessor
 from src.models.pinn import ConfigurablePINN, get_default_pinn_config
 from src.models.relobralo_loss import ReLoBRaLoLoss
-import src.constants as c
+import src.configs as cfg
 
 # ── Configuration defaults ────────────────────────────────────────────────────
-RAW_DATA_DIR      = "data/raw-mafaulda/"
-PROCESSED_DATA_DIR = "data/processed-mafaulda/"
-PINN_MODEL_PATH   = "results/pinn.pth"
-EPOCHS            = 100000000
-BATCH_SIZE        = 256
+RAW_DATA_DIR      = cfg.DATA_DIR_RAW
+PROCESSED_DATA_DIR = cfg.DATA_DIR_PROCESSED
+PINN_MODEL_PATH   = cfg.PINN_MODEL_PATH
+EPOCHS            = cfg.PHASE0_TRAIN_SETTINGS['epochs']
+BATCH_SIZE        = cfg.PHASE0_TRAIN_SETTINGS['batch_size']
 NUM_SAMPLES       = None   # set a small int for a dry run
-ROTATION          = 12     # specific rotation frequency (Hz) to pick from the dataset
-PATIENCE          = 15     # epochs to wait for improvement before early stopping
-MIN_DELTA         = 1e-4   # minimum improvement in val_loss to reset patience
+ROTATION          = cfg.PHASE0_TRAIN_SETTINGS['rotation_hz']
+PATIENCE          = cfg.PHASE0_TRAIN_SETTINGS['early_stop_patience']
+MIN_DELTA         = cfg.PHASE0_TRAIN_SETTINGS['early_stop_min_delta']
 
 
 # ── Step 1: Pre-Process & Split ───────────────────────────────────────────────
@@ -99,10 +99,10 @@ def step2_train_pinn_oracle(processed_data_dir, output_model_path,
 
     # ── Load Training-Set Tensors ─────────────────────────────────────────────
     # These are the windows produced by the processor (NOT the held-out test set).
-    x_path = os.path.join(processed_data_dir, c.DATASET_CURRENT_VERSION,
-                          f"X_normal_{c.DATASET_CURRENT_VERSION}_trainingset.pth")
-    y_path = os.path.join(processed_data_dir, c.DATASET_CURRENT_VERSION,
-                          f"Y_normal_{c.DATASET_CURRENT_VERSION}_trainingset.pth")
+    x_path = os.path.join(processed_data_dir, 
+                          f"X_normal_{cfg.DATASET_VERSION}_trainingset.pth")
+    y_path = os.path.join(processed_data_dir, 
+                          f"Y_normal_{cfg.DATASET_VERSION}_trainingset.pth")
 
     if not os.path.exists(x_path) or not os.path.exists(y_path):
         raise FileNotFoundError(
@@ -236,6 +236,17 @@ def step2_train_pinn_oracle(processed_data_dir, output_model_path,
 
     # ── Save Checkpoint ───────────────────────────────────────────────────────
     os.makedirs(os.path.dirname(output_model_path), exist_ok=True)
+    
+    # Save the normalization bounds separately for the rest of the pipeline
+    norm_path = os.path.join(os.path.dirname(output_model_path), "normalization_metadata.pth")
+    torch.save({
+        'X_max': X_max.cpu(),
+        'X_min': X_min.cpu(),
+        'y_max': y_max.cpu(),
+        'y_min': y_min.cpu()
+    }, norm_path)
+    print(f"Normalization metadata saved to {norm_path}")
+
     torch.save({
         'model_state_dict': best_model_weights,
         'X_max': X_max.cpu(),
@@ -267,10 +278,10 @@ def evaluate_on_test_set(processed_data_dir, model_weights,
     )
 
     # ── Load Test-Set Tensors ─────────────────────────────────────────────────
-    x_test_path = os.path.join(processed_data_dir, c.DATASET_CURRENT_VERSION,
-                                f"X_normal_{c.DATASET_CURRENT_VERSION}_testset.pth")
-    y_test_path = os.path.join(processed_data_dir, c.DATASET_CURRENT_VERSION,
-                                f"Y_normal_{c.DATASET_CURRENT_VERSION}_testset.pth")
+    x_test_path = os.path.join(processed_data_dir, 
+                                f"X_normal_{cfg.DATASET_VERSION}_testset.pth")
+    y_test_path = os.path.join(processed_data_dir, 
+                                f"Y_normal_{cfg.DATASET_VERSION}_testset.pth")
 
     if not os.path.exists(x_test_path):
         print(f"  [WARNING] Test tensors not found at {x_test_path}. Skipping evaluation.")

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import sys
 import os
-import src.constants as c
+import src.configs as cfg
 
 from .pinn import ConfigurablePINN, get_default_pinn_config
 from .feature_extractors import MathFeatureExtractor
@@ -25,15 +25,21 @@ class PriorWorkOracle(nn.Module):
             enable_mass_constraints=True
         )
         
-        # 2. Load Pre-Trained PINN Weights (if available)
-        # If the checkpoint file doesn't exist, the oracle still runs with random weights
-        # (useful for structural/pipeline testing before Phase 0 is completed).
-        
-        # Normalization bounds — filled from the checkpoint saved at the end of Phase 0
-        self.register_buffer('X_max', torch.ones(10))
-        self.register_buffer('X_min', torch.zeros(10))
-        self.register_buffer('y_max', torch.ones(4))
-        self.register_buffer('y_min', torch.zeros(4))
+        # 2. Load Normalization Metadata & Pre-Trained PINN Weights
+        norm_path = os.path.join(os.path.dirname(__file__), "../../results/normalization_metadata.pth")
+        if os.path.exists(norm_path):
+            metadata = torch.load(norm_path, map_location='cpu', weights_only=True)
+            self.register_buffer('X_max', metadata['X_max'])
+            self.register_buffer('X_min', metadata['X_min'])
+            self.register_buffer('y_max', metadata['y_max'])
+            self.register_buffer('y_min', metadata['y_min'])
+            print(f"Successfully loaded normalization metadata from {norm_path}")
+        else:
+            print("WARNING: Normalization metadata not found. Defaulting to identity.")
+            self.register_buffer('X_max', torch.ones(10))
+            self.register_buffer('X_min', torch.zeros(10))
+            self.register_buffer('y_max', torch.ones(4))
+            self.register_buffer('y_min', torch.zeros(4))
 
         weight_path = os.path.join(os.path.dirname(__file__), "../../results/pinn.pth")
         if os.path.exists(weight_path):
@@ -41,10 +47,6 @@ class PriorWorkOracle(nn.Module):
                 ckpt = torch.load(weight_path, map_location='cpu', weights_only=True)
                 if isinstance(ckpt, dict) and 'model_state_dict' in ckpt:
                     self.pinn.load_state_dict(ckpt['model_state_dict'])
-                    self.X_max.copy_(ckpt['X_max'])
-                    self.X_min.copy_(ckpt['X_min'])
-                    self.y_max.copy_(ckpt['y_max'])
-                    self.y_min.copy_(ckpt['y_min'])
                 else:
                     self.pinn.load_state_dict(ckpt)  # Fallback for old checkpoints without norm bounds
                 print("Successfully loaded prior PINN weights into the Oracle.")
@@ -55,11 +57,10 @@ class PriorWorkOracle(nn.Module):
             
         # 3. The Purely Mathematical, Differentiable Feature Extractor
         # The PINN outputs 4 unmeasured force parameters + 4 physics residuals = 8 channels.
-        # MathFeatureExtractor computes time-domain statistics and FFT magnitudes from these
-        # 8 channels, producing a 2120-dim vector (8 * (9 time-stats + 256 FFT bins)).
+        # MathFeatureExtractor computes deterministic statistical, spectral, and wavelet features.
         # No learnable weights — fully deterministic and differentiable.
         self.feature_extractor = MathFeatureExtractor(in_channels=8)
-        self.embed_dim = self.feature_extractor.output_dim  # 2120
+        self.embed_dim = self.feature_extractor.output_dim  # 2240 (9 stats + 256 FFT + 15 Wavelet per channel)
 
         # Freeze all parameters — the Oracle is a fixed physics evaluation tool,
         # not something that should be updated during Phase 2 training.
@@ -92,22 +93,24 @@ class PriorWorkOracle(nn.Module):
         return vel, pos
 
     # IS THIS METHOD USED TO EXTRACT THE FEATURES?
-    def forward(self, x):
+    def forward(self, x, omega=None):
         """
         Extracts physics-informed features from one full-rotation window of accelerometer data.
 
-        Input:  (Batch, 4, L) — 4-channel raw acceleration trace, where
-                  L = window_size = fs / rotation_Hz  (varies per rotation speed!).
-                  For example: L ≈ 2008 at 24.9 Hz, L = 1000 at 50 Hz.
+        Input:  (Batch, 4, L) — 4-channel normalized acceleration trace in [0, 1].
+                  L = window_size = fs / rotation_Hz.
+                omega: (Batch, 1) or float — rotational speed in rad/s. 
+                       If None, uses self.dynamic_omega.
 
-        Output: (Batch, embed_dim)  — embedding vector whose dimension depends on extractor_type:
-                  'conv1d' / 'fft' => fixed embed_dim (e.g. 64 or 1024)
-                  'math'           => 2120  (8 channels × (9 time-stats + 256 FFT bins))
+        Output: (Batch, embed_dim) — 2240 features.
         """
         B, C, L = x.shape
         
-        # 0. Restore physical scale from dataset soft-scaling
-        physical_acc = x * c.PHYSICAL_SOFT_SCALE
+        # 0. Restore physical scale via precise Min-Max denormalization
+        # Input x is assumed to be normalized exactly как the dataset targets.
+        y_min_exp = self.y_min.view(1, 4, 1)
+        y_max_exp = self.y_max.view(1, 4, 1)
+        physical_acc = x * (y_max_exp - y_min_exp + 1e-12) + y_min_exp
         
         # 1. Differentiable Kinematics
         vel, pos = self.differentiable_integration(physical_acc)
@@ -118,28 +121,34 @@ class PriorWorkOracle(nn.Module):
         pos_flat = pos.transpose(1, 2).reshape(B * L, 4)
         
         # Omega (Speed) and Time grids
-        if self.dynamic_omega is not None:
-            omega_2d = self.dynamic_omega.view(-1, 1).expand(B, 1)
-            omega = omega_2d.expand(B, L).reshape(B * L, 1).to(dtype=x.dtype)
+        effective_omega = omega if omega is not None else self.dynamic_omega
+        if effective_omega is not None:
+            if isinstance(effective_omega, (float, int)):
+                effective_omega = torch.full((B, 1), effective_omega, device=x.device, dtype=x.dtype)
+            omega_2d = effective_omega.view(-1, 1).expand(B, 1)
+            omega_feed = omega_2d.expand(B, L).reshape(B * L, 1).to(dtype=x.dtype)
         else:
-            omega = torch.full((B * L, 1), 20.0 * 2 * 3.14159, device=x.device, dtype=x.dtype)
+            raise ValueError("Oracle forward requires omega to be passed or set via set_dynamic_omega.")
             
         time_steps = torch.arange(L, device=x.device, dtype=x.dtype) * self.dt
         time_grid = time_steps.unsqueeze(0).expand(B, L).reshape(B * L, 1)
         
-        pinn_input = torch.cat([vel_flat, pos_flat, omega, time_grid], dim=-1)
+        pinn_input = torch.cat([vel_flat, pos_flat, omega_feed, time_grid], dim=-1)
         
-        # 3. Min-Max Normalization (PINN expects [0,1] features)
+        # 3. Extract Physics Features
+        # The PINN expects inputs as (B*L, 10) in [0, 1] range.
         pinn_input_norm = (pinn_input - self.X_min) / (self.X_max - self.X_min + 1e-12)
         
-        # 4. Extract Physics Features
-        # ConfigurablePINN internally casts to double, so we temporarily cast our inputs
-        pred_acc_norm = self.pinn(pinn_input_norm.double()).float() 
+        # Ensure double precision for PINN logic
+        pinn_input_norm = pinn_input_norm.double()
+        
+        # Forward pass: obtain accelerations and implicit unmeasured parameters
+        pred_acc_norm = self.pinn(pinn_input_norm).float() 
         unmeasured = torch.cat([self.pinn.fA, self.pinn.fB, self.pinn.fC, self.pinn.fD], dim=-1).float()
         
-        # Compute residuals (pass bounds so PINN can denormalize internally for physical equations)
+        # Compute residuals (pass bounds for internal denormalization)
         res1, res2, res3, res4, _, _ = self.pinn.compute_residuals(
-            pinn_input_norm.double(), 
+            pinn_input_norm, 
             pred_acc_norm.double(),
             X_max=self.X_max, X_min=self.X_min,
             y_max=self.y_max, y_min=self.y_min

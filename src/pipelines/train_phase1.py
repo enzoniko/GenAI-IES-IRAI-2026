@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import matplotlib.pyplot as plt
 import os
+import src.configs as cfg
 from src.models import TSJEPA, Decoder1, Decoder2CVAE
 from src.data import get_dataloaders
 
@@ -28,9 +29,9 @@ class EarlyStopping:
 
 def train_phase1_tsjepa(model, train_loader, val_loader, max_epochs, device):
     print("--- Phase 1: Training TS-JEPA ---")
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = optim.Adam(model.parameters(), lr=cfg.PHASE1_TRAIN_SETTINGS['learning_rate'])
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
-    early_stopping = EarlyStopping(patience=5)
+    early_stopping = EarlyStopping(patience=cfg.PHASE1_TRAIN_SETTINGS['early_stop_patience'])
     criterion = nn.MSELoss()
     
     for epoch in range(max_epochs):
@@ -72,9 +73,9 @@ def train_phase1_tsjepa(model, train_loader, val_loader, max_epochs, device):
 
 def train_phase1_decoder1(ts_jepa, decoder1, train_loader, val_loader, max_epochs, device):
     print("--- Phase 2: Training Decoder 1 (Deterministic) on RAW TRACES ---")
-    optimizer = optim.Adam(decoder1.parameters(), lr=1e-3)
+    optimizer = optim.Adam(decoder1.parameters(), lr=cfg.PHASE1_TRAIN_SETTINGS['learning_rate'])
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
-    early_stopping = EarlyStopping(patience=5)
+    early_stopping = EarlyStopping(patience=cfg.PHASE1_TRAIN_SETTINGS['early_stop_patience'])
     criterion = nn.MSELoss()
     
     for epoch in range(max_epochs):
@@ -119,9 +120,9 @@ def train_phase1_decoder1(ts_jepa, decoder1, train_loader, val_loader, max_epoch
 
 def extract_residuals_and_train_decoder2(ts_jepa, decoder1, decoder2, train_loader, val_loader, max_epochs, device):
     print("--- Phase 3 & 4: Extracting Residuals & Training Decoder 2 (CVAE) ---")
-    optimizer = optim.Adam(decoder2.parameters(), lr=1e-3)
+    optimizer = optim.Adam(decoder2.parameters(), lr=cfg.PHASE1_TRAIN_SETTINGS['learning_rate'])
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
-    early_stopping = EarlyStopping(patience=5)
+    early_stopping = EarlyStopping(patience=cfg.PHASE1_TRAIN_SETTINGS['early_stop_patience'])
     recon_criterion = nn.MSELoss()
     
     def kl_loss_fn(mu, logvar):
@@ -146,8 +147,7 @@ def extract_residuals_and_train_decoder2(ts_jepa, decoder1, decoder2, train_load
             recon_loss = recon_criterion(recon_residual, residual)
             kl_loss = kl_loss_fn(mu, logvar)
             
-            beta = 0.01 
-            loss = recon_loss + beta * (kl_loss / raw.size(0))
+            loss = recon_loss + cfg.PHASE1_TRAIN_SETTINGS['beta_kl'] * (kl_loss / raw.size(0))
             
             loss.backward()
             optimizer.step()
@@ -166,7 +166,7 @@ def extract_residuals_and_train_decoder2(ts_jepa, decoder1, decoder2, train_load
                 residual = raw - recon_raw
                 
                 recon_residual, mu, logvar = decoder2(residual, z_macro, label)
-                loss = recon_criterion(recon_residual, residual) + beta * (kl_loss_fn(mu, logvar) / raw.size(0))
+                loss = recon_criterion(recon_residual, residual) + cfg.PHASE1_TRAIN_SETTINGS['beta_kl'] * (kl_loss_fn(mu, logvar) / raw.size(0))
                 val_loss += loss.item()
                 
         t_loss = train_loss / len(train_loader)
@@ -248,7 +248,9 @@ def evaluate_pipeline(ts_jepa, decoder1, decoder2, val_loader, device):
             axes[c, 3].legend()
             
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-        plt.savefig(f"results/evaluation_class_{idx_label}.png", dpi=300)
+        os.makedirs(cfg.RESULTS_DIR, exist_ok=True)
+        save_path = os.path.join(cfg.RESULTS_DIR, f"evaluation_class_{idx_label}.png")
+        plt.savefig(save_path, dpi=300)
         plt.close()
         
     print("Evaluation completed. Saved multivariate plots to results/evaluation_class_*.png")
@@ -305,7 +307,7 @@ def run_training_pipeline(max_epochs=100, batch_size=32, num_samples=1500):
     ts_jepa = TSJEPA(in_channels=4).to(device)
     decoder1 = Decoder1(out_channels=4).to(device)
     decoder2 = Decoder2CVAE(in_channels=4).to(device)
-        
+
     ts_jepa = train_phase1_tsjepa(ts_jepa, train_loader, val_loader, max_epochs, device)
     decoder1 = train_phase1_decoder1(ts_jepa, decoder1, train_loader, val_loader, max_epochs, device)
     decoder2 = extract_residuals_and_train_decoder2(ts_jepa, decoder1, decoder2, train_loader, val_loader, max_epochs, device)
@@ -314,9 +316,9 @@ def run_training_pipeline(max_epochs=100, batch_size=32, num_samples=1500):
 
     # Save Checkpoints explicitly for Phase 3
     print("--- Saving Phase 2 Checkpoints ---")
-    torch.save(ts_jepa.state_dict(), "results/ts_jepa.pth")
-    torch.save(decoder1.state_dict(), "results/decoder1.pth")
-    torch.save(decoder2.state_dict(), "results/decoder2.pth")
-    print("Checkpoints saved successfully to results/")
+    torch.save(ts_jepa.state_dict(), cfg.JEPA_MODEL_PATH)
+    torch.save(decoder1.state_dict(), cfg.DEC1_MODEL_PATH)
+    torch.save(decoder2.state_dict(), cfg.DEC2_MODEL_PATH)
+    print(f"Checkpoints saved successfully to {cfg.RESULTS_DIR}/")
     
     return ts_jepa, decoder1, decoder2

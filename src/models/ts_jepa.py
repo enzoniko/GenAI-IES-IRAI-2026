@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import src.configs as cfg
 import copy
 import math
 
@@ -25,8 +26,16 @@ class Tokenizer(nn.Module):
         return x.transpose(1, 2)
 
 class TSJEPA(nn.Module):
-    def __init__(self, in_channels=4, patch_size=50, d_model=128, nhead=4, num_layers=4, ema_decay=0.99):
+    def __init__(self, in_channels=4, patch_size=None, d_model=None, nhead=None, num_layers=None, ema_decay=None):
         super().__init__()
+        
+        # Pull from centralized config if not explicitly provided
+        patch_size = patch_size or cfg.JEPA_CONFIG['patch_size']
+        d_model = d_model or cfg.JEPA_CONFIG['d_model']
+        nhead = nhead or cfg.JEPA_CONFIG['nhead']
+        num_layers = num_layers or cfg.JEPA_CONFIG['num_layers']
+        ema_decay = ema_decay or cfg.JEPA_CONFIG['ema_decay']
+        
         self.tokenizer = Tokenizer(in_channels, patch_size, d_model)
         self.pos_enc = PositionalEncoding(d_model)
         
