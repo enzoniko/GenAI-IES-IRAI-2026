@@ -3,6 +3,8 @@ import torch.nn as nn
 import sys
 import os
 import src.configs as cfg
+import torchaudio.functional as F
+from scipy.signal import butter
 
 from .pinn import ConfigurablePINN
 from .feature_extractors import MathFeatureExtractor
@@ -80,19 +82,78 @@ class PriorWorkOracle(nn.Module):
         """Allows the diffusion loop to set the expected physical rotational speed."""
         self.dynamic_omega = omega
 
+    def _get_filter_coefs(self, device):
+        """Get Butterworth coefficients as Torch tensors in float64."""
+        # Note: We compute these on CPU once then move to device.
+        # fs and cutoff are from configs.
+        b, a = butter(4, cfg.CUTOFF_HZ, btype='high', fs=cfg.SAMPLING_RATE)
+        return torch.from_numpy(b).to(device).double(), torch.from_numpy(a).to(device).double()
+
+    def _torch_filtfilt(self, x: torch.Tensor, b: torch.Tensor, a: torch.Tensor) -> torch.Tensor:
+        """Differentiable zero-phase IIR filtering (forward-backward)."""
+        # Forward pass through IIR recursive filter
+        y = F.lfilter(x, a, b, clamp=False)
+        # Flip, filter again, and flip back to ensure zero phase delay 
+        y = torch.flip(y, dims=[-1])
+        y = F.lfilter(y, a, b, clamp=False)
+        y = torch.flip(y, dims=[-1])
+        return y
+
+    def _torch_detrend(self, y: torch.Tensor) -> torch.Tensor:
+        """Differentiable linear detrender using Least Squares."""
+        n = y.shape[-1]
+        # x coordinates normalized to [0,1]
+        x = torch.linspace(0, 1, n, device=y.device, dtype=y.dtype)
+        # Linear model matrix: [x, 1]
+        A = torch.stack([x, torch.ones_like(x)], dim=-1) 
+        # Expand A to match the leading batch dimensions of y
+        A_expanded = A.expand(*y.shape[:-1], n, 2)
+        # Least squares solve
+        res = torch.linalg.lstsq(A_expanded, y.unsqueeze(-1))
+        slope, intercept = res.solution[..., 0, :], res.solution[..., 1, :]
+        trend = (slope * x + intercept).squeeze(-1)
+        return y - trend
+
+    def _torch_integrate(self, y: torch.Tensor) -> torch.Tensor:
+        """Differentiable trapezoidal integration."""
+        # Standard trapezoidal rule: area[i] = (y[i] + y[i-1])/2 * dt
+        y_mid = 0.5 * (y[..., 1:] + y[..., :-1])
+        integral = torch.cumsum(y_mid * self.dt, dim=-1)
+        # Pad leading zero to match initial sample time t=0
+        z = torch.zeros((*y.shape[:-1], 1), device=y.device, dtype=y.dtype)
+        return torch.cat([z, integral], dim=-1)
+
     def differentiable_integration(self, acc):
         """
-        Replaces LoadDatav3.py SciPy math with Differentiable PyTorch operations.
+        Replaces simple cumsum with a robust Strategy D implementation (detrend + double filter).
         Allows gradients to flow backward from Velocity/Position into the generated Acceleration.
         """
-        # Ensure zero-mean to prevent catastrophic integration drift
-        acc = acc - acc.mean(dim=-1, keepdim=True)
-        vel = torch.cumsum(acc, dim=-1) * self.dt
-        vel = vel - vel.mean(dim=-1, keepdim=True)
-        pos = torch.cumsum(vel, dim=-1) * self.dt
-        return vel, pos
+        # USE DOUBLE PRECISION (float64) for internal processing of IIR filters
+        orig_dtype = acc.dtype
+        acc_db = acc.double()
+        
+        # 1. CONDITIONING (Zero-mean + Detrend)
+        acc_db = acc_db - acc_db.mean(dim=-1, keepdim=True)
+        acc_db = self._torch_detrend(acc_db)
+        
+        # 2. ACCELERATION FILTERING
+        b_coef, a_coef = self._get_filter_coefs(acc.device)
+        acc_filt = self._torch_filtfilt(acc_db, b_coef, a_coef)
+        
+        # 3. INTEGRATION -> VELOCITY
+        vel = self._torch_integrate(acc_filt)
+        
+        # 4. VELOCITY FILTERING (The critical Strategy D 'Second Filter')
+        # Integration generates a cumulative error curve; this high-pass 
+        # filter 're-centers' velocity around zero.
+        vel_filt = self._torch_filtfilt(vel, b_coef, a_coef)
+        
+        # 5. INTEGRATION -> POSITION
+        pos = self._torch_integrate(vel_filt)
+        
+        # Cast back to original precision (float32) for model compatibility
+        return vel_filt.to(orig_dtype), pos.to(orig_dtype)
 
-    # IS THIS METHOD USED TO EXTRACT THE FEATURES?
     def forward(self, x, omega=None):
         """
         Extracts physics-informed features from one full-rotation window of accelerometer data.
