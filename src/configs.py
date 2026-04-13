@@ -8,10 +8,17 @@ import os
 # ==============================================================================
 # GLOBAL SETTINGS & PATHS
 # ==============================================================================
+# Dataset organization
 DATASET_VERSION = "v1"
+TARGET_HZ = 30.0
 DATA_DIR_RAW = "data/raw-mafaulda/"
-DATA_DIR_PROCESSED = f"data/processed-mafaulda/{DATASET_VERSION}"
+# Processed data will be in categorical subfolders named after the frequency (e.g. data/processed-mafaulda/30hz/)
+DATA_DIR_PROCESSED = f"data/processed-mafaulda/{int(TARGET_HZ)}hz"
 RESULTS_DIR = "results"
+
+# Number of classes in the expanded MaFaulDa dataset
+NUM_CLASSES = 42
+SEQ_LENGTH = 1639 # Standardized for 30Hz biological windows
 
 # Signal Processing Settings
 SIGNAL_PROCESSING_STRATEGY = 'previous_strategy'  # Options: 'fft', 'previous_strategy'

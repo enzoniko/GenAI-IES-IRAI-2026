@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import torch
 import sys
+import os
+import json
 from pathlib import Path
 from scipy.fft import rfft, irfft, rfftfreq
 from scipy.signal import butter, filtfilt
@@ -192,37 +194,129 @@ class CleanMaFaulDaProcessor:
         b, a = butter(4, self.cutoff_hz, btype='high', fs=self.fs)
         return torch.from_numpy(b).double(), torch.from_numpy(a).double()
 
-    def run(self, category: str = 'normal', rotation: int = None,
-            training_windows: int = None, test_windows: int = None):
-        """
-        Process all CSV files for a given fault category and save the resulting tensors.
-
-        Parameters
-        ----------
-        category : str
-            Fault label to process ('normal', 'imbalance', 'overhang').
-        rotation : int | None
-            If given, restrict processing to the one CSV file whose filename
-            (Hz value) matches this integer.
-        training_windows : int | None
-            How many rotation windows to keep in the training set.
-            If None, defaults to 15% of all available windows (rounded).
-        test_windows : int | None
-            How many rotation windows to hold out as a temporally-disjoint test set.
-            These come from the CHRONOLOGICAL END of the recording so they are
-            guaranteed not to appear as neighbours of any training window.
-            If None, defaults to 3% of all available windows (rounded), minimum 1.
-        """
-        target_dir = self.raw_data_dir / category
-        print(f"  Loading CSVs from directory: {target_dir}")
+    def find_best_matches(self, target_hz: float) -> dict:
+        """For each leaf directory, find the CSV with frequency closest to target_hz."""
+        categories = self.discover_categories()
+        best_matches = {}
         
-        csv_files = sorted(target_dir.glob("*.csv"))
+        for cat_path in categories:
+            csv_files = list(cat_path.glob("*.csv"))
+            if not csv_files:
+                continue
+            # Find closest freq
+            best_csv = min(csv_files, key=lambda f: abs(float(f.stem) - target_hz))
+            best_matches[cat_path] = best_csv
+            
+        return best_matches
+
+    def calculate_global_min_window(self, matches: dict) -> int:
+        """Determine the minimum window size across all selected best-match files."""
+        min_size = float('inf')
+        for csv_path in matches.values():
+            hz_value = float(csv_path.stem)
+            window_size = int(np.round(self.fs / hz_value))
+            if window_size < min_size:
+                min_size = window_size
+        return int(min_size)
+
+    def discover_categories(self) -> list:
+        """Find all leaf directories containing .csv files."""
+        categories = []
+        for path in self.raw_data_dir.rglob("*"):
+            if path.is_dir() and any(path.glob("*.csv")):
+                categories.append(path)
+        return sorted(categories)
+
+    def get_category_label(self, category_path: Path) -> str:
+        """Construct a standardized label name matching legacy naming conventions."""
+        rel_path = category_path.relative_to(self.raw_data_dir)
+        parts = list(rel_path.parts)
+        
+        if parts == ['normal']:
+            return 'normal'
+            
+        # Join with underscore, replace hyphens
+        name = "_".join(parts).replace('-', '_')
+        
+        # Legacy compatibility fixes (inserting '_fault' where missing)
+        if 'misalignment' in name and 'fault' not in name:
+            # horizontal_misalignment_0.5mm -> horizontal_misalignment_fault_0.5mm
+            parts_list = name.split('_')
+            name = "_".join(parts_list[:-1]) + "_fault_" + parts_list[-1]
+        elif 'imbalance' in name and 'fault' not in name:
+            # imbalance_6g -> imbalance_fault_6g
+            parts_list = name.split('_')
+            name = "_".join(parts_list[:-1]) + "_fault_" + parts_list[-1]
+        elif 'outer_race' in name and 'fault' not in name:
+            # overhang_outer_race_0g -> overhang_outer_race_fault_0g
+            name = name.replace('outer_race', 'outer_race_fault')
+            
+        return name
+
+    def run(self, target_hz: float = cfg.TARGET_HZ, 
+            rotation: int = None, 
+            training_windows: int = None, 
+            test_windows: int = None):
+        """
+        Orchestrate Selective Frequency Processing.
+        """
+        print(f"Starting Selective Frequency Processing (Target: {target_hz} Hz)...")
+        
+        # 1. Find best matches
+        matches = self.find_best_matches(target_hz)
+        print(f"  Found {len(matches)} categories with files matching target Hz.")
+        
+        # 2. Calculate global minimum window size to avoid padding
+        global_min_window = self.calculate_global_min_window(matches)
+        print(f"  Global standardized window size (SEQ_LENGTH): {global_min_window}")
+        
+        # Update output directory to use target frequency
+        old_processed_dir = self.processed_data_dir
+        self.processed_data_dir = old_processed_dir.parent / f"{int(target_hz)}hz"
+        self.processed_data_dir.mkdir(parents=True, exist_ok=True)
+        print(f"  Processed tensors will be saved to: {self.processed_data_dir}")
+
+        # 3. Process each match
+        for cat_path, csv_path in matches.items():
+            label = self.get_category_label(cat_path)
+            print(f"Processing category: {label} (File: {csv_path.name})")
+            self.process_category(cat_path, label, rotation, training_windows, test_windows, 
+                                  specific_csv=csv_path, min_window_size=global_min_window)
+        
+        # Save metadata info to the processed folder for the training pipeline to discover
+        metadata = {
+            "target_hz": target_hz,
+            "seq_length": int(global_min_window),
+            "num_channels_y": 4,
+            "num_features_x": 10,
+            "label_strategy": "mafaulda_expanded_42"
+        }
+        meta_path = self.processed_data_dir / "metadata.json"
+        with open(meta_path, 'w') as f:
+            json.dump(metadata, f, indent=4)
+        print(f"  [Processor] Metadata saved to {meta_path}")
+        
+        print("\nAll categories processed successfully!")
+
+    def process_category(self, target_dir: Path, label: str, rotation: int = None,
+                         training_windows: int = None, test_windows: int = None,
+                         specific_csv: Path = None, min_window_size: int = None):
+        """Original run logic extracted to process a single directory."""
+        if specific_csv:
+            csv_files = [specific_csv]
+        else:
+            csv_files = sorted(target_dir.glob("*.csv"))
+            if rotation:
+                csv_files = [f for f in csv_files if int(float(f.stem)) == rotation]
+        
         if not csv_files:
             print(f"  [Error] No CSV files found in {target_dir}")
             return
         
         # ── Rotation Frequency Filtering ─────────────────────────────────────
-        if rotation is not None:
+        # If we didn't already select a specific CSV via the matcher, apply
+        # legacy integer-based filtering.
+        if specific_csv is None and rotation is not None:
             target_rotation = int(rotation)
             matched_files = []
             for f in csv_files:
@@ -277,6 +371,7 @@ class CleanMaFaulDaProcessor:
             omega_array = np.full((len(time_array), 1), omega)
             time_col = time_array.reshape(-1, 1)
             
+            # Stack all 10 columns: [Vel1, Vel2, Vel3, Vel4, Pos1, Pos2, Pos3, Pos4, Omega, Time]
             X = np.column_stack([velocities, positions, omega_array, time_col])
             
             X_list.append(X)
@@ -304,14 +399,20 @@ class CleanMaFaulDaProcessor:
             X_chunked = X_sliced.reshape(-1, window_size, X.shape[1])
             Y_chunked = Y_sliced.reshape(-1, window_size, Y.shape[1])
             
+            # Apply truncation to global min window size if provided
+            # This is critical to ensure uniform dimensions across ALL categories
+            if min_window_size:
+                X_chunked = X_chunked[:, :min_window_size, :]
+                Y_chunked = Y_chunked[:, :min_window_size, :]
+            
             X_3D_list.append(X_chunked)
             Y_3D_list.append(Y_chunked)
 
         # Concatenate all files along the window dimension
-        X_all = np.concatenate(X_3D_list, axis=0)  # (N_total, window_size, 10)
-        Y_all = np.concatenate(Y_3D_list, axis=0)  # (N_total, window_size, 4)
+        X_all = np.concatenate(X_3D_list, axis=0)  # (N_total, min_window_size, 10)
+        Y_all = np.concatenate(Y_3D_list, axis=0)  # (N_total, min_window_size, 4)
         N_total = X_all.shape[0]
-        print(f"  [Processor] Found total of {N_total} biological rotation windows across files.")
+        print(f"  [Processor] Extracted {N_total} windows (Standardized length: {X_all.shape[1]})")
 
         # ── Training / Test Split ─────────────────────────────────────────────
         # The test windows come from the CHRONOLOGICAL END of the recording.
@@ -353,21 +454,18 @@ class CleanMaFaulDaProcessor:
         X_test_tensor = torch.tensor(X_all[N_total - test_windows:], dtype=torch.float32)
         Y_test_tensor = torch.tensor(Y_all[N_total - test_windows:], dtype=torch.float32)
 
-        # ── Save Tensors ─────────────────────────────────────────────────────
+        # Ensure output directory exists
         out_path = self.processed_data_dir
         out_path.mkdir(parents=True, exist_ok=True)
 
-        # Training set tensors (used by PINN + TS-JEPA + Decoders)
-        torch.save(X_train_tensor, out_path / f"X_{category}_{cfg.DATASET_VERSION}_trainingset.pth")
-        torch.save(Y_train_tensor, out_path / f"Y_{category}_{cfg.DATASET_VERSION}_trainingset.pth")
-
-        # Test set tensors (held out for final evaluation — never touched during training)
-        torch.save(X_test_tensor, out_path / f"X_{category}_{cfg.DATASET_VERSION}_testset.pth")
-        torch.save(Y_test_tensor, out_path / f"Y_{category}_{cfg.DATASET_VERSION}_testset.pth")
-
-        print(f"  Finished processing '{category}':")
-        print(f"    Training set — X: {X_train_tensor.shape} | Y: {Y_train_tensor.shape}")
-        print(f"    Test set     — X: {X_test_tensor.shape} | Y: {Y_test_tensor.shape}")
-        print(f"    Saved to: {out_path}")
+        # ── Save Tensors ─────────────────────────────────────────────────────
+        # Save tensors
+        torch.save(X_train_tensor, out_path / f"X_{label}_trainingset.pth")
+        torch.save(Y_train_tensor, out_path / f"Y_{label}_trainingset.pth")
+        
+        torch.save(X_test_tensor, out_path / f"X_{label}_testset.pth")
+        torch.save(Y_test_tensor, out_path / f"Y_{label}_testset.pth")
+        
+        print(f"    Final Training Shape: {X_train_tensor.shape} | {Y_train_tensor.shape}")
 
 

@@ -1,24 +1,29 @@
 import torch
 import torch.nn as nn
+import src.configs as cfg
 
 class EncoderCVAE(nn.Module):
-    def __init__(self, seq_length=5000, in_channels=4, context_dim=128, latent_dim=64, num_classes=3, label_embed_dim=16):
+    def __init__(self, seq_length=cfg.SEQ_LENGTH, in_channels=4, context_dim=128, latent_dim=64, num_classes=cfg.NUM_CLASSES, label_embed_dim=16):
         super().__init__()
+        self.seq_length = seq_length
         
         # CNN downsampling the residual
         self.cnn = nn.Sequential(
-            # Input: (Batch, 4, 5000)
-            nn.Conv1d(in_channels, 32, kernel_size=5, stride=5, padding=2), # -> 1000
+            # Input: (Batch, 4, seq_length)
+            nn.Conv1d(in_channels, 32, kernel_size=5, stride=2, padding=2),
             nn.BatchNorm1d(32),
             nn.GELU(),
             
-            nn.Conv1d(32, 64, kernel_size=5, stride=2, padding=2), # -> 500
+            nn.Conv1d(32, 64, kernel_size=5, stride=2, padding=2),
             nn.BatchNorm1d(64),
             nn.GELU(),
             
-            nn.Conv1d(64, 128, kernel_size=5, stride=5, padding=2), # -> 100
+            nn.Conv1d(64, 128, kernel_size=5, stride=2, padding=2),
             nn.BatchNorm1d(128),
             nn.GELU(),
+            
+            # Adaptive pooling to ensure fixed dimension regardless of SEQ_LENGTH
+            nn.AdaptiveAvgPool1d(100) 
         )
         
         self.flat_dim = 128 * 100
@@ -35,7 +40,7 @@ class EncoderCVAE(nn.Module):
         self.fc_logvar = nn.Linear(256, latent_dim)
         
     def forward(self, residual, z_macro, label):
-        # residual: (Batch, 4, 5000)
+        # residual: (Batch, 4, seq_length)
         cnn_features = self.cnn(residual)
         cnn_features = cnn_features.view(cnn_features.size(0), -1)
         
@@ -49,9 +54,9 @@ class EncoderCVAE(nn.Module):
         return mu, logvar
 
 class DecoderCVAE(nn.Module):
-    def __init__(self, latent_dim=64, context_dim=128, seq_length=5000, out_channels=4, num_classes=3, label_embed_dim=16):
+    def __init__(self, latent_dim=64, context_dim=128, seq_length=cfg.SEQ_LENGTH, out_channels=4, num_classes=cfg.NUM_CLASSES, label_embed_dim=16):
         super().__init__()
-        
+        self.seq_length = seq_length
         self.init_length = 125
         self.init_channels = 256
         self.label_embed = nn.Embedding(num_classes, label_embed_dim)
@@ -80,7 +85,8 @@ class DecoderCVAE(nn.Module):
             nn.BatchNorm1d(32),
             nn.GELU(),
             
-            nn.Upsample(scale_factor=5, mode='nearest'), # -> 5000
+            # Final dynamic upsample to match target length
+            nn.Upsample(size=self.seq_length, mode='linear', align_corners=False),
             nn.Conv1d(32, out_channels, kernel_size=5, padding=2)
         )
         
@@ -93,7 +99,7 @@ class DecoderCVAE(nn.Module):
         return out
 
 class Decoder2CVAE(nn.Module):
-    def __init__(self, seq_length=5000, in_channels=4, context_dim=128, latent_dim=64, num_classes=3, label_embed_dim=16):
+    def __init__(self, seq_length=cfg.SEQ_LENGTH, in_channels=4, context_dim=128, latent_dim=64, num_classes=cfg.NUM_CLASSES, label_embed_dim=16):
         super().__init__()
         self.encoder = EncoderCVAE(seq_length, in_channels, context_dim, latent_dim, num_classes, label_embed_dim)
         self.decoder = DecoderCVAE(latent_dim, context_dim, seq_length, in_channels, num_classes, label_embed_dim)

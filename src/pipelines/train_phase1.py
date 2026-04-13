@@ -185,20 +185,27 @@ def evaluate_pipeline(ts_jepa, decoder1, decoder2, val_loader, device):
     print("--- Phase 5: Multivariate Evaluation & Plotting ---")
     os.makedirs("results", exist_ok=True)
     
-    samples = {0: None, 1: None, 2: None}
+    # We'll plot a few representative samples if available
+    # For 42 classes, we'll just pick a few to keep it manageable
+    target_labels = [0, 1, 13, 25, 35] # Normal, Overhang Ball, Underhang Ball, Horiz, Imbalance
+    samples = {l: None for l in target_labels}
     
     for batch in val_loader:
         raws, cleans, labels = batch
+        omegas = batch.omega
         for i in range(len(labels)):
             label = labels[i].item()
-            if samples[label] is None:
+            if label in samples and samples[label] is None:
                 samples[label] = (raws[i:i+1], cleans[i:i+1])
         if all(v is not None for v in samples.values()):
             break
             
-    fault_names = ["Healthy", "Imbalance", "Outer-Race"]
+    # mapping index to name (reverse lookup would be better but we can just use ids)
+    # fault_names = ["Healthy", "Imbalance", "Outer-Race"] # Old
     
-    for idx_label, (raw, clean) in samples.items():
+    for idx_label, sample_data in samples.items():
+        if sample_data is None: continue
+        raw, clean = sample_data
         raw, clean = raw.to(device), clean.to(device)
         label_tensor = torch.tensor([idx_label], dtype=torch.long, device=device)
         
@@ -209,10 +216,11 @@ def evaluate_pipeline(ts_jepa, decoder1, decoder2, val_loader, device):
             sampled_jitter = decoder2.sample(z_macro, label_tensor)
             final_synthetic_trace = recon_raw + sampled_jitter
             
-        t = torch.linspace(0, 5000/50000, 5000).numpy()
+        seq_len = raw.shape[-1]
+        t = torch.linspace(0, seq_len/50000, seq_len).numpy()
         
         fig, axes = plt.subplots(4, 4, figsize=(24, 16))
-        fig.suptitle(f"Multivariate Analysis: {fault_names[idx_label]} Class", fontsize=20)
+        fig.suptitle(f"Multivariate Analysis: Label {idx_label}", fontsize=20)
         
         metric_titles = [
             "Dec1 Recon (TS-JEPA Filter)",
@@ -282,12 +290,13 @@ def plot_umap(ts_jepa, val_loader, device):
     embedding = reducer.fit_transform(all_z)
     
     plt.figure(figsize=(10, 8))
-    scatter = plt.scatter(embedding[:, 0], embedding[:, 1], c=all_labels, cmap='viridis', s=15, alpha=0.8)
+    scatter = plt.scatter(embedding[:, 0], embedding[:, 1], c=all_labels, cmap='tab20', s=15, alpha=0.8)
     
-    classes = ["Healthy", "Imbalance", "Outer-Race"]
-    handles, _ = scatter.legend_elements(prop="colors")
-    if len(handles) == 3:
-        plt.legend(handles, classes, title="Fault Classes")
+    plt.colorbar(scatter, label='Fault Class ID')
+    # classes = ["Healthy", "Imbalance", "Outer-Race"]
+    # handles, _ = scatter.legend_elements(prop="colors")
+    # if len(handles) == 3:
+    #     plt.legend(handles, classes, title="Fault Classes")
         
     plt.title("UMAP Projection of TS-JEPA z_macro Latent Space")
     plt.xlabel("UMAP 1")
@@ -302,11 +311,12 @@ def run_training_pipeline(max_epochs=100, batch_size=32, num_samples=1500):
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    train_loader, val_loader = get_dataloaders(batch_size=batch_size, num_samples=num_samples, val_split=0.2)
+    train_loader, val_loader, detected_seq_length = get_dataloaders(batch_size=batch_size, num_samples=num_samples, val_split=0.2)
+    print(f"  [Pipeline] Initializing models with Sequence Length: {detected_seq_length}")
     
     ts_jepa = TSJEPA(in_channels=4).to(device)
-    decoder1 = Decoder1(out_channels=4).to(device)
-    decoder2 = Decoder2CVAE(in_channels=4).to(device)
+    decoder1 = Decoder1(out_channels=4, seq_length=detected_seq_length).to(device)
+    decoder2 = Decoder2CVAE(in_channels=4, seq_length=detected_seq_length).to(device)
 
     ts_jepa = train_phase1_tsjepa(ts_jepa, train_loader, val_loader, max_epochs, device)
     decoder1 = train_phase1_decoder1(ts_jepa, decoder1, train_loader, val_loader, max_epochs, device)

@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
+import src.configs as cfg
 
 class Decoder1(nn.Module):
-    def __init__(self, d_model=128, seq_length=5000, out_channels=4):
+    def __init__(self, d_model=128, seq_length=cfg.SEQ_LENGTH, out_channels=4):
         super().__init__()
         self.seq_length = seq_length
         self.out_channels = out_channels
@@ -16,7 +17,7 @@ class Decoder1(nn.Module):
             nn.Linear(512, self.init_channels * self.init_length)
         )
         
-        # CNN Upsampling blocks to scale from 125 -> 5000
+        # CNN Upsampling blocks to scale from 125 -> target seq_length
         self.decoder_cnn = nn.Sequential(
             # Input: (Batch, 256, 125)
             nn.Upsample(scale_factor=2, mode='nearest'), # -> 250
@@ -34,7 +35,8 @@ class Decoder1(nn.Module):
             nn.BatchNorm1d(32),
             nn.GELU(),
             
-            nn.Upsample(scale_factor=5, mode='nearest'), # -> 5000
+            # Final dynamic upsample to match standardized window size
+            nn.Upsample(size=self.seq_length, mode='linear', align_corners=False),
             nn.Conv1d(32, out_channels, kernel_size=5, padding=2)
         )
 

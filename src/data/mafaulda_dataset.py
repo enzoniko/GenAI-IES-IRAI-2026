@@ -2,13 +2,14 @@ import torch
 from torch.utils.data import Dataset, DataLoader, Subset
 import os
 import glob
+import json
 import pandas as pd
 import src.configs as cfg
 
 class BatchTuple(tuple):
     """
     A custom tuple to pass the dynamic `omega` without breaking the 
-    standard diffusion dataloader signature (which expects exactly 3 items).
+    standard dataloader signature (which expects exactly 3 items).
     """
     def __new__(cls, r, c, l, o):
         return super(BatchTuple, cls).__new__(cls, (r, c, l))
@@ -35,22 +36,44 @@ class MaFaulDaDataset(Dataset):
         - trace: (4, window_length) float tensor
         - label: long tensor
     """
-    def __init__(self, root_dir, num_samples: int = 1500, seq_length: int = 5000, num_channels: int = 4):
-        # seq_length is absorbed as **kwargs natively handles it from generative architectures, 
-        # but we rely on the internal physical window_length of the pre-processed data.
+    def __init__(self, root_dir, num_samples: int = 1500, seq_length: int = None, num_channels: int = 4):
+        # Determine sequence length: 
+        # 1. Look for metadata.json in the processed folder (Auto-discovery)
+        # 2. Fallback to passed argument
+        # 3. Fallback to centralized config
+        self.metadata = None
+        meta_path = os.path.join(root_dir, "metadata.json")
+        if os.path.exists(meta_path):
+            with open(meta_path, 'r') as f:
+                self.metadata = json.load(f)
+                
+        self.seq_length = (self.metadata.get('seq_length') if self.metadata else None) or seq_length or cfg.SEQ_LENGTH
         self.num_samples = num_samples
         self.num_channels = num_channels
+        
+        if self.metadata:
+            print(f"  [Dataset] Auto-discovered metadata: {self.metadata['target_hz']} Hz | Sequence: {self.seq_length}")
         
         traces_list = []
         labels_list = []
         omegas_list = []
         
         # MaFaulDa folder structure mapping to integer labels
-        # 0: Normal/Healthy, 1: Imbalance, 2: Overhang Bearing
         label_mapping = {
             'normal': 0,
-            'imbalance': 1,
-            'overhang': 2
+            # Overhang
+            'overhang_ball_fault_0g': 1, 'overhang_ball_fault_6g': 2, 'overhang_ball_fault_20g': 3, 'overhang_ball_fault_35g': 4,
+            'overhang_cage_fault_0g': 5, 'overhang_cage_fault_6g': 6, 'overhang_cage_fault_20g': 7, 'overhang_cage_fault_35g': 8,
+            'overhang_outer_race_fault_0g': 9, 'overhang_outer_race_fault_6g': 10, 'overhang_outer_race_fault_20g': 11, 'overhang_outer_race_fault_35g': 12,
+            # Underhang
+            'underhang_ball_fault_0g': 13, 'underhang_ball_fault_6g': 14, 'underhang_ball_fault_20g': 15, 'underhang_ball_fault_35g': 16,
+            'underhang_cage_fault_0g': 17, 'underhang_cage_fault_6g': 18, 'underhang_cage_fault_20g': 19, 'underhang_cage_fault_35g': 20,
+            'underhang_outer_race_fault_0g': 21, 'underhang_outer_race_fault_6g': 22, 'underhang_outer_race_fault_20g': 23, 'underhang_outer_race_fault_35g': 24,
+            # Misalignment
+            'horizontal_misalignment_fault_0.5mm': 25, 'horizontal_misalignment_fault_1.0mm': 26, 'horizontal_misalignment_fault_1.5mm': 27, 'horizontal_misalignment_fault_2.0mm': 28,
+            'vertical_misalignment_fault_0.51mm': 29, 'vertical_misalignment_fault_0.63mm': 30, 'vertical_misalignment_fault_1.27mm': 31, 'vertical_misalignment_fault_1.40mm': 32, 'vertical_misalignment_fault_1.78mm': 33, 'vertical_misalignment_fault_1.90mm': 34,
+            # Imbalance
+            'imbalance_fault_6g': 35, 'imbalance_fault_10g': 36, 'imbalance_fault_15g': 37, 'imbalance_fault_20g': 38, 'imbalance_fault_25g': 39, 'imbalance_fault_30g': 40, 'imbalance_fault_35g': 41
         }
         
         print(f"Loading pre-processed datasets from {root_dir}...")
@@ -69,33 +92,37 @@ class MaFaulDaDataset(Dataset):
         
         # Scan directories and build the memory tensors
         for category, label_idx in label_mapping.items():
-            y_files = glob.glob(os.path.join(root_dir, f"Y_{category}_*_trainingset.pth"))
-            x_files = glob.glob(os.path.join(root_dir, f"X_{category}_*_trainingset.pth"))
+            y_files = glob.glob(os.path.join(root_dir, f"Y_{category}_trainingset.pth"))
+            x_files = glob.glob(os.path.join(root_dir, f"X_{category}_trainingset.pth"))
             
+            if not y_files:
+                print(f"  WARNING: Tensors for '{category}' not found in {root_dir}")
+                continue
             if y_files and x_files:
                 # Load the first matching version
                 y_tensor = torch.load(y_files[0], map_location='cpu', weights_only=True)
                 x_tensor = torch.load(x_files[0], map_location='cpu', weights_only=True)
                 
-                # y_tensor comes in as (Num_Windows, Window_Size, Channels)
-                # Conv1D architectures expect (Num_Windows, Channels, Window_Size)
+                # Standardize data type to float32 for model compatibility
                 y_tensor = y_tensor.transpose(1, 2).float()
                 
-                # Extract the dynamic rotational speed (omega) from the X tensor's index 8
-                # It is constant across the window, so we just take the first element's omega
+                # Extract the dynamic rotational speed (omega) from index 8
                 omega_vals = x_tensor[:, 0, 8].float()
                 
-                # Apply Unified Min-Max Normalization instead of legacy soft-scaling
+                # Apply Unified Min-Max Normalization
                 if metadata is not None:
                     # Normalize Target Y (Acceleration)
-                    y_tensor = (y_tensor - y_min.view(1, 4, 1)) / (y_max.view(1, 4, 1) - y_min.view(1, 4, 1) + 1e-12)
+                    y_min_f = y_min.view(1, 4, 1).float()
+                    y_max_f = y_max.view(1, 4, 1).float()
+                    y_tensor = (y_tensor - y_min_f) / (y_max_f - y_min_f + 1e-12)
                     
                     # Normalize Input X (Velocity and Position)
-                    # We transpose X to (Channels, Length) for broadcasting if needed, 
-                    # but index-based indexing is safer here for the 10 columns.
-                    # Column indices: 0-3 (Vel), 4-7 (Pos), 8 (Omega), 9 (Time)
-                    for col in range(8): # Only normalize Vel and Pos
+                    # Column indices: 0-3 (Vel), 4-7 (Pos)
+                    for col in range(8):
                         x_tensor[:, :, col] = (x_tensor[:, :, col] - X_min[col]) / (X_max[col] - X_min[col] + 1e-12)
+                
+                # Ensure x_tensor is float32
+                x_tensor = x_tensor.float()
                 
                 traces_list.append(y_tensor)
                 labels_list.append(torch.full((y_tensor.shape[0],), label_idx, dtype=torch.long))
@@ -130,8 +157,8 @@ class MaFaulDaDataset(Dataset):
         return trace, trace, label, omega
 
 # Absorb **kwargs to safely ignore synthetic-specific arguments like `seq_length` or `noise_std`
-def get_dataloaders(batch_size=32, num_samples=1500, val_split=0.2, data_dir='data/processed-mafaulda/v1', **kwargs):
-    dataset = MaFaulDaDataset(root_dir=data_dir, num_samples=num_samples, seq_length=kwargs.get('seq_length', 5000))
+def get_dataloaders(batch_size=32, num_samples=1500, val_split=0.2, data_dir=cfg.DATA_DIR_PROCESSED, **kwargs):
+    dataset = MaFaulDaDataset(root_dir=data_dir, num_samples=num_samples, seq_length=kwargs.get('seq_length', cfg.SEQ_LENGTH))
 
     if len(dataset) == 0:
         return None, None
@@ -151,4 +178,4 @@ def get_dataloaders(batch_size=32, num_samples=1500, val_split=0.2, data_dir='da
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,  collate_fn=mafaulda_collate_fn)
     val_loader   = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False, collate_fn=mafaulda_collate_fn)
 
-    return train_loader, val_loader
+    return train_loader, val_loader, dataset.seq_length

@@ -54,7 +54,6 @@ def step1_prepare_dataset(raw_data_dir, processed_data_dir, rotation=None,
         processed_data_dir=processed_data_dir
     )
     processor.run(
-        category='normal',
         rotation=rotation,
         training_windows=training_windows,
         test_windows=test_windows
@@ -101,10 +100,8 @@ def step2_train_pinn_oracle(processed_data_dir, output_model_path,
 
     # ── Load Training-Set Tensors ─────────────────────────────────────────────
     # These are the windows produced by the processor (NOT the held-out test set).
-    x_path = os.path.join(processed_data_dir, 
-                          f"X_normal_{cfg.DATASET_VERSION}_trainingset.pth")
-    y_path = os.path.join(processed_data_dir, 
-                          f"Y_normal_{cfg.DATASET_VERSION}_trainingset.pth")
+    x_path = os.path.join(processed_data_dir, "X_normal_trainingset.pth")
+    y_path = os.path.join(processed_data_dir, "Y_normal_trainingset.pth")
 
     if not os.path.exists(x_path) or not os.path.exists(y_path):
         raise FileNotFoundError(
@@ -280,10 +277,8 @@ def evaluate_on_test_set(processed_data_dir, model_weights,
     )
 
     # ── Load Test-Set Tensors ─────────────────────────────────────────────────
-    x_test_path = os.path.join(processed_data_dir, 
-                                f"X_normal_{cfg.DATASET_VERSION}_testset.pth")
-    y_test_path = os.path.join(processed_data_dir, 
-                                f"Y_normal_{cfg.DATASET_VERSION}_testset.pth")
+    x_test_path = os.path.join(processed_data_dir, "X_normal_testset.pth")
+    y_test_path = os.path.join(processed_data_dir, "Y_normal_testset.pth")
 
     if not os.path.exists(x_test_path):
         print(f"  [WARNING] Test tensors not found at {x_test_path}. Skipping evaluation.")
