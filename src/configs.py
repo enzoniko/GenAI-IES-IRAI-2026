@@ -20,6 +20,10 @@ RESULTS_DIR = "results"
 NUM_CLASSES = 42
 SEQ_LENGTH = 1639 # Standardized for 30Hz biological windows
 
+# How much windows will be used from the dataset
+WINDOW_PCT = 0.75
+
+
 # Signal Processing Settings
 SIGNAL_PROCESSING_STRATEGY = 'previous_strategy'  # Options: 'fft', 'previous_strategy'
 # TO VERIFY THE PREVIOUS CUTOFF AND HOW IT WAS CALCULATED
@@ -78,7 +82,7 @@ PHASE1_TRAIN_SETTINGS = {
     'batch_size': 32,
     'learning_rate': 1e-3,
     'beta_kl': 0.01,
-    'early_stop_patience': 5,
+    'early_stop_patience': 25,
 }
 
 JEPA_CONFIG = {
