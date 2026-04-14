@@ -89,7 +89,7 @@ def run_guided_sdedit(ts_jepa, decoder1, decoder2, ldm, oracle, scheduler,
                       guidance_scale=None, 
                       strength=None):
     """
-    healthy_trace: A raw healthy physical signal of shape (1, 4, 5000)
+    healthy_trace: A raw healthy physical signal of shape (1, 4, seq_len)
     target_class_idx: The fault class to synthesize (e.g., 2 for Outer-Race)
     val_loader: Dataloader containing validation set to map background UMAP clusters
     omega: Physical rotational speed for the oracle
@@ -170,7 +170,8 @@ def run_guided_sdedit(ts_jepa, decoder1, decoder2, ldm, oracle, scheduler,
     
     # 5. Plot the result
     os.makedirs(cfg.RESULTS_DIR, exist_ok=True)
-    t_ax = torch.linspace(0, 5000/cfg.SAMPLING_RATE, 5000).numpy()
+    seq_len = healthy_trace.shape[-1]
+    t_ax = torch.linspace(0, seq_len/cfg.SAMPLING_RATE, seq_len).numpy()
     
     fig, axes = plt.subplots(4, 1, figsize=(10, 12))
     fig.suptitle(f"Phase 3: Physics-Guided Counterfactual Synthesis\nTransition: Healthy -> Class {target_class_idx}", fontsize=16)

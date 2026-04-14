@@ -391,7 +391,7 @@ if __name__ == "__main__":
     # New: explicit window counts for the data split
     parser.add_argument("--training_windows",   type=int, default=TRAIN_WINDOWS,
                         help="Number of full-rotation windows for the training set "
-                             "(default: 15%% of total windows)")
+                             "(default: 75%% of total windows)")
     parser.add_argument("--test_windows",       type=int, default=TEST_WINDOWS,
                         help="Number of full-rotation windows held out for the test set "
                              "(default: 3%% of total windows, min 1). "

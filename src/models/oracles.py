@@ -28,7 +28,7 @@ class PriorWorkOracle(nn.Module):
         )
         
         # 2. Load Normalization Metadata & Pre-Trained PINN Weights
-        norm_path = os.path.join(os.path.dirname(__file__), "../../results/normalization_metadata.pth")
+        norm_path = cfg.NORM_METADATA_PATH
         if os.path.exists(norm_path):
             metadata = torch.load(norm_path, map_location='cpu', weights_only=True)
             self.register_buffer('X_max', metadata['X_max'])
@@ -43,7 +43,7 @@ class PriorWorkOracle(nn.Module):
             self.register_buffer('y_max', torch.ones(4))
             self.register_buffer('y_min', torch.zeros(4))
 
-        weight_path = os.path.join(os.path.dirname(__file__), "../../results/pinn.pth")
+        weight_path = cfg.PINN_MODEL_PATH
         if os.path.exists(weight_path):
             try:
                 ckpt = torch.load(weight_path, map_location='cpu', weights_only=True)
@@ -71,16 +71,9 @@ class PriorWorkOracle(nn.Module):
             
         # Empirical reference embeddings for each fault class, used to compute the
         # SDEdit guidance penalty (MSE between generated and target physics embeddings).
-        # 1 = Imbalance, 2 = Outer-Race
-        self.register_buffer('dist_class_1', torch.zeros(self.embed_dim))
-        self.register_buffer('dist_class_2', torch.zeros(self.embed_dim))
+        # Replace deprecated class-specific buffers with a generic multi-class buffer
+        self.register_buffer('target_distributions', torch.zeros(cfg.NUM_CLASSES, self.embed_dim))
         
-        # Rotational speed set externally by the diffusion loop (rad/s)
-        self.dynamic_omega = None
-
-    def set_dynamic_omega(self, omega: torch.Tensor):
-        """Allows the diffusion loop to set the expected physical rotational speed."""
-        self.dynamic_omega = omega
 
     def _get_filter_coefs(self, device):
         """Get Butterworth coefficients as Torch tensors in float64."""
@@ -182,14 +175,13 @@ class PriorWorkOracle(nn.Module):
         pos_flat = pos.transpose(1, 2).reshape(B * L, 4)
         
         # Omega (Speed) and Time grids
-        effective_omega = omega if omega is not None else self.dynamic_omega
-        if effective_omega is not None:
-            if isinstance(effective_omega, (float, int)):
-                effective_omega = torch.full((B, 1), effective_omega, device=x.device, dtype=x.dtype)
-            omega_2d = effective_omega.view(-1, 1).expand(B, 1)
+        if omega is not None:
+            if isinstance(omega, (float, int)):
+                omega = torch.full((B, 1), omega, device=x.device, dtype=x.dtype)
+            omega_2d = omega.view(-1, 1).expand(B, 1)
             omega_feed = omega_2d.expand(B, L).reshape(B * L, 1).to(dtype=x.dtype)
         else:
-            raise ValueError("Oracle forward requires omega to be passed or set via set_dynamic_omega.")
+            raise ValueError("Reactive Physics Error: Oracle forward requires a measured 'omega' parameter. Hardcoded or forecasted physics are not allowed.")
             
         time_steps = torch.arange(L, device=x.device, dtype=x.dtype) * self.dt
         time_grid = time_steps.unsqueeze(0).expand(B, L).reshape(B * L, 1)
@@ -226,17 +218,16 @@ class PriorWorkOracle(nn.Module):
         # Extract features differentiably across the time dimension!
         return self.feature_extractor(physics_features)
         
-    def set_target_distribution(self, target_class, empirical_embedding):
-        """Allows main.py to set the actual reachable distribution"""
-        if target_class == 1:
-            self.dist_class_1.copy_(empirical_embedding.detach())
-        elif target_class == 2:
-            self.dist_class_2.copy_(empirical_embedding.detach())
-
-    def get_target_distribution(self, target_class):
-        if target_class == 1:
-            return self.dist_class_1
-        elif target_class == 2:
-            return self.dist_class_2
+    def set_target_distribution(self, class_idx, embedding):
+        """Stores the target physical embedding for a specific fault class."""
+        if 0 <= class_idx < self.target_distributions.shape[0]:
+            self.target_distributions[class_idx].copy_(embedding)
         else:
-            raise ValueError(f"Oracle mock only holds distributions for faults 1 and 2, got {target_class}")
+            raise ValueError(f"Invalid class index {class_idx}. Maximum supported class index is {self.target_distributions.shape[0]-1}")
+
+    def get_target_distribution(self, class_idx):
+        """Retrieves the target physical embedding for a specific fault class."""
+        if 0 <= class_idx < self.target_distributions.shape[0]:
+            return self.target_distributions[class_idx]
+        else:
+            raise ValueError(f"Invalid class index {class_idx}. Maximum supported class index is {self.target_distributions.shape[0]-1}")
