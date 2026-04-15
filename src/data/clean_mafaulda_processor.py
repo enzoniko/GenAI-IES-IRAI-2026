@@ -445,7 +445,7 @@ class CleanMaFaulDaProcessor:
             X_train_tensor = torch.tensor(X_all[:training_windows], dtype=torch.float32)
             Y_train_tensor = torch.tensor(Y_all[:training_windows], dtype=torch.float32)
         else:
-            # Default: 75% of total, but cap at the available training pool
+            # Check and set default train windows percentage in the configs file
             default_train = min(int(round(N_total * cfg.WINDOW_PCT)), N_train_pool)
             X_train_tensor = torch.tensor(X_all[:default_train], dtype=torch.float32)
             Y_train_tensor = torch.tensor(Y_all[:default_train], dtype=torch.float32)

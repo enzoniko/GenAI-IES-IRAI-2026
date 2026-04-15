@@ -184,10 +184,10 @@ def extract_residuals_and_train_decoder2(ts_jepa, decoder1, decoder2, train_load
 def evaluate_pipeline(ts_jepa, decoder1, decoder2, val_loader, device):
     print("--- Phase 5: Multivariate Evaluation & Plotting ---")
     os.makedirs("results", exist_ok=True)
-    
+
     # We'll plot a few representative samples if available
     # For 42 classes, we'll just pick a few to keep it manageable
-    target_labels = [0, 1, 13, 25, 35] # Normal, Overhang Ball, Underhang Ball, Horiz, Imbalance
+    target_labels = [0, 35, 36, 37, 38] # Normal and 4 types of imbalance
     samples = {l: None for l in target_labels}
     
     for batch in val_loader:
@@ -201,7 +201,6 @@ def evaluate_pipeline(ts_jepa, decoder1, decoder2, val_loader, device):
             break
             
     # mapping index to name (reverse lookup would be better but we can just use ids)
-    # fault_names = ["Healthy", "Imbalance", "Outer-Race"] # Old
     
     for idx_label, sample_data in samples.items():
         if sample_data is None: continue

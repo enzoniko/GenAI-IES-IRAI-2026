@@ -10,7 +10,7 @@ import os
 # ==============================================================================
 # Dataset organization
 DATASET_VERSION = "v1"
-TARGET_HZ = 30.0
+TARGET_HZ = 17.0
 DATA_DIR_RAW = "data/raw-mafaulda/"
 # Processed data will be in categorical subfolders named after the frequency (e.g. data/processed-mafaulda/30hz/)
 DATA_DIR_PROCESSED = f"data/processed-mafaulda/{int(TARGET_HZ)}hz"
@@ -21,7 +21,7 @@ NUM_CLASSES = 42
 SEQ_LENGTH = 1639 # Standardized for 30Hz biological windows
 
 # How much windows will be used from the dataset
-WINDOW_PCT = 0.75
+WINDOW_PCT = 0.90
 
 
 # Signal Processing Settings
@@ -45,7 +45,7 @@ PHASE0_TRAIN_SETTINGS = {
     'rotation_hz': 30,
     'training_windows': 1000,
     'test_windows': 20,
-    'early_stop_patience': 15,
+    'early_stop_patience': 20,
     'early_stop_min_delta': 1e-4,
     'learning_rate': 1e-4,
 }
