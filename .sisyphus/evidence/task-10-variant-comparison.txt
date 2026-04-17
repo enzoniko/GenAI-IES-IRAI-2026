@@ -1,0 +1,17 @@
+=== T10: PINN Variant Comparison ===
+Variant A: from-scratch (T9, 250 epochs, results/pinn.pth)
+  Silhouette_raw2240: 0.0783
+  Silhouette_pca50: 0.0789
+  kNN_accuracy_pca50: 0.7783
+
+Variant B: old weights as-is (T5 eval)
+  Silhouette_pca50: -0.2037
+  kNN_accuracy_pca50: 0.8008
+
+BEST VARIANT: A
+JUSTIFICATION: Variant A (from-scratch T9) has higher Silhouette (0.0789 vs -0.2037). Old weights exhibit omega mismatch (153 vs 101 rad/s) causing residuals ~1e9, making their kNN accuracy (0.801) spurious.
+FALLBACK STATUS: Active -- 'physics-informed representation' framing (no clean clusters)
+
+Figures:
+  PNG preview: .sisyphus/evidence/task-10-best-umap.png
+  PDF paper:   assets/fig_pinn_umap_mafaulda.pdf

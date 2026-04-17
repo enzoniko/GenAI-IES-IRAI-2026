@@ -179,3 +179,13 @@
 - .sisyphus/evidence/task-8-oscillator-check.txt
 - .sisyphus/evidence/task-8-synthetic-pipeline.txt
 - .sisyphus/evidence/task-8-fairness.txt
+
+## [2026-04-17] T10: PINN Variant Comparison
+- Variant A (from-scratch T9, results/pinn.pth): Silhouette_raw2240=0.0783, Silhouette_pca50=0.0789, kNN_pca50=0.7783
+- Variant B (T5 old weights): Silhouette_pca50=-0.2037, kNN_pca50=0.8008 (SPURIOUS — omega mismatch 153 vs 101 rad/s, residuals explode 1e9x)
+- BEST VARIANT: A (from-scratch) — higher Silhouette (0.0789 vs -0.2037)
+- Both variants below 0.3 silhouette as expected — FALLBACK ACTIVE: frame as 'physics-informed representation'
+- 8-channel physics signal: 4 residuals + 4 unmeasured force estimates (fA/fB/fC/fD) -> MathFeatureExtractor -> 2240-dim
+- Workflow: X(N,T,10) -> normalize -> flatten(N*T,10) -> PINN batched -> residuals(N*T,4) + forces(N*T,4) -> physics_seq(N,T,8) -> MathFeatExt -> (N,2240)
+- UMAP(n_neighbors=15, min_dist=0.1) on PCA-50 space gives plausible visualization even without clean clusters
+- Files: assets/fig_pinn_umap_mafaulda.pdf (300 DPI PDF), .sisyphus/evidence/task-10-best-umap.png (150 DPI PNG)
