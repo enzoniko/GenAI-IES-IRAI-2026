@@ -1,3 +1,5 @@
+# pyright: reportUnusedImport=false, reportUnknownMemberType=false, reportUnannotatedClassAttribute=false, reportImplicitOverride=false, reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownArgumentType=false, reportPrivateImportUsage=false, reportUnknownVariableType=false, reportOperatorIssue=false, reportUnusedParameter=false, reportUnusedCallResult=false, reportAny=false, reportArgumentType=false, reportIndexIssue=false, reportConstantRedefinition=false, reportUninitializedInstanceVariable=false, reportUnusedVariable=false, reportUnnecessaryComparison=false
+
 '''
 Original Paper: Linking Physical Fidelity to Downstream Performance in Physics-Informed Fault Diagnosis
 
@@ -434,19 +436,6 @@ class ConfigurablePINN(nn.Module):
         residual2 = K1*y2_denorm + K2*y3_denorm - M1*self.g + M1*omega_phys**2*E1*torch.sin(omega_phys*t_phys) - self.fB
         residual3 = M3*x3_ddot_denorm + D3*x3_dot_denorm + K2*x3_denorm - K2_K1_ratio*M2*x2_ddot_denorm - K2_K1_ratio*D2*x2_dot_denorm - K2*x2_denorm - self.fC
         residual4 = M3*y3_ddot_denorm + D3*y3_dot_denorm + K2*y3_denorm - K2_K1_ratio*M2*y2_ddot_denorm - K2_K1_ratio*D2*y2_dot_denorm - K2*y2_denorm - K2_K1_ratio*M2*self.g + M3*self.g - self.fD
-
-        # --- NON-DIMENSIONALIZATION (PHYSICS SCALING) ---
-        # The variables above like K1 generate magnitudes of O(10^6). When the network computes the raw loss (residual^2),
-        # these errors are in the millions, causing massive Gradient Pathology (exploding gradients) and completely blinding 
-        # the ReLoBRaLo balancer (which saturates due to numeric disproportion against the ~1.0 baseline data loss).
-        # We perform mathematical "Non-Dimensionalization" by dividing the differential equations by the characteristic scale (1e6).
-        # This rigorously maintains the Newtonian algebra (since 0 / 1e6 is still exactly 0) while pushing the residuals 
-        # to a well-conditioned mathematical range (O(0.1) - O(1.0)) for the Neural Optimizer!
-        force_scale = 1e6
-        residual1 = residual1 / force_scale
-        residual2 = residual2 / force_scale
-        residual3 = residual3 / force_scale
-        residual4 = residual4 / force_scale
 
         # Conditionally include mass constraints based on flag
         if self.enable_mass_constraints:

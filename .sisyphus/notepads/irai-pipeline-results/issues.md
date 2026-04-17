@@ -14,3 +14,13 @@
 - None of the above have been fixed yet — T1, T3 will address them
 ## [2026-04-17] T1 data repair
 - Verification found 24 vertical files present as required, but overhang still totals 28 files rather than the plan's older expectation of 32 because only overhang_ball and overhang_cage tensors exist in the current processed set.
+
+## [2026-04-17] T2 Issues Found
+- Normalization bounds diverge sharply from processed 16Hz data: 7/10 X features diverge, omega old bound is effectively fixed at 153.4 rad/s while new data spans about 96.5-104.2 rad/s, and all 4 Y channels exceed old ranges by large margins.
+- Weight loading is not strict-compatible: legacy checkpoint keys target sequential indices .3/.6 while current PINN state dict expects .2/.4 because the old exported architecture uses ELU activations inserted between linear layers.
+- model_config.json contradicts inherited assumptions: exported metadata says activation=elu, not tanh.
+- pytest failures: oracle math extractor test now requires explicit omega; oracle target buffer test still expects class index 5 though NUM_CLASSES=4; processed dataset test still looks for legacy path data/processed-mafaulda/v1/ instead of 16hz.
+- Dtype seam remains significant: float32 data/latent pipeline interfaces with float64 PINN/oracle physics, with repeated conversions inside oracle forward.
+## [2026-04-17] T3: Code Audit + Fix
+- Verification exposed a blocking gradient issue in tests/test_math_extractor that was not limited to the missing omega argument; float32 feature extraction overflowed on large physics features and produced NaN gradients.
+- PriorWorkOracle still reports PINN checkpoint shape mismatch and falls back to initialized weights during smoke tests because legacy exported architecture indexing differs; this remains expected until dedicated checkpoint remapping work.

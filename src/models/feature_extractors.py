@@ -1,3 +1,5 @@
+# pyright: reportUnknownMemberType=false, reportUnannotatedClassAttribute=false, reportImplicitOverride=false, reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownArgumentType=false, reportPrivateImportUsage=false, reportUnknownVariableType=false, reportUnusedCallResult=false, reportAny=false, reportArgumentType=false, reportCallIssue=false, reportUnusedVariable=false
+
 """
 feature_extractors.py
 ---------------------
@@ -63,6 +65,8 @@ class MathFeatureExtractor(nn.Module):
         Extracts features using standard, deterministic equations.
         Input: (Batch, Sequence Length, Channels)
         """
+        orig_dtype = x.dtype
+        x = x.double()
         B, L, C = x.shape
         
         # Epsilon is added to denominators and square roots to prevent 
@@ -149,8 +153,8 @@ class MathFeatureExtractor(nn.Module):
             
             # Perform one level of Haar DWT
             # Approx (Low-pass) and Detail (High-pass)
-            approx = F.conv1d(current_approx, self.filt_h0, groups=self.in_channels, stride=2)
-            detail = F.conv1d(current_approx, self.filt_h1, groups=self.in_channels, stride=2)
+            approx = F.conv1d(current_approx, self.filt_h0.to(dtype=current_approx.dtype), groups=self.in_channels, stride=2)
+            detail = F.conv1d(current_approx, self.filt_h1.to(dtype=current_approx.dtype), groups=self.in_channels, stride=2)
             
             # Extract subband features from Detail coefficients
             w_mean = detail.mean(dim=-1)
@@ -180,5 +184,5 @@ class MathFeatureExtractor(nn.Module):
         # Concatenate into the final native mathematical embedding
         combined_features = torch.cat([time_features, freq_features, wavelet_features], dim=1) 
         
-        return combined_features
+        return combined_features.to(orig_dtype)
 

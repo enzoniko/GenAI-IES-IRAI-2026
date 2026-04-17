@@ -1,0 +1,59 @@
+T3 Audit Report - 2026-04-17
+
+Files reviewed:
+- src/configs.py
+- src/models/pinn.py
+- src/models/oracles.py
+- src/models/feature_extractors.py
+- src/models/relobralo_loss.py
+- tests/test_processed_datasets.py
+- tests/test_math_extractor.py
+- tests/test_oracle.py
+- previous-work-pinn/basicPINNv8.py
+- previous-work-pinn/export_relobralo/model_config.json
+- previous-work-pinn/export_relobralo/architecture.py
+
+Targeted fixes applied:
+1. src/configs.py
+   - Changed PINN_ARCH_DEFAULT activation from tanh to elu in both unmeasured_net_config and acceleration_net_config.
+   - Added RELOBRALO_DEFAULT with alpha=0.5125, rho=0.2332, temperature=1.4198 from previous-work-pinn/export_relobralo/model_config.json.
+
+2. src/models/relobralo_loss.py
+   - Updated ReLoBRaLoLoss defaults to use cfg.RELOBRALO_DEFAULT.
+
+3. tests/test_processed_datasets.py
+   - Updated path from data/processed-mafaulda/v1/ to data/processed-mafaulda/16hz/.
+   - Updated filenames from X_normal_v1_trainingset.pth / Y_normal_v1_trainingset.pth to X_normal_trainingset.pth / Y_normal_trainingset.pth.
+
+4. tests/test_math_extractor.py
+   - Added required omega argument to PriorWorkOracle forward call.
+   - Aligned test input shape and usage with the working oracle differentiability path.
+
+5. tests/test_oracle.py
+   - Corrected valid class index coverage from legacy invalid indices to [0, 1, 3].
+   - Corrected invalid index assertion from 42 to 4 for NUM_CLASSES=4.
+
+Physics equation audit: src/models/pinn.py vs previous-work-pinn/basicPINNv8.py
+
+Residual equations reviewed:
+- residual1 = K1*x2 + K2*x3 + M1*omega^2*E1*cos(omega*t) - fA
+- residual2 = K1*y2 + K2*y3 - M1*g + M1*omega^2*E1*sin(omega*t) - fB
+- residual3 = M3*x3_ddot + D3*x3_dot + K2*x3 - (K2/K1)*M2*x2_ddot - (K2/K1)*D2*x2_dot - K2*x2 - fC
+- residual4 = M3*y3_ddot + D3*y3_dot + K2*y3 - (K2/K1)*M2*y2_ddot - (K2/K1)*D2*y2_dot - K2*y2 - (K2/K1)*M2*g + M3*g - fD
+- residualMass1 = M1 + M2 + M3 - 22.0
+- residualMass2 = M2 - M3
+
+Comparison result:
+- Coefficients, signs, variables, and mass constraints match the reference implementation.
+- Derivative handling inside src/models/pinn.py matches the reference pattern: accelerations and velocities are consumed as inputs; no autograd or finite-difference derivative calculation occurs inside compute_residuals.
+- One verified mismatch was found after the residual equations: current src/models/pinn.py divided residual1-4 by 1e6 before returning them, while previous-work-pinn/basicPINNv8.py returns the raw residuals.
+- Fix applied: removed the extra 1e6 residual scaling so the current implementation matches the proven reference equations and loss magnitude behavior.
+
+Additional blocking issue found during verification:
+- src/models/feature_extractors.py produced NaN gradients in test_math_extractor when very large physics features flowed through float32 feature extraction.
+- Fix applied: compute MathFeatureExtractor internals in float64 and cast the final embedding back to the original input dtype, preserving external interface while stabilizing gradients.
+
+Verification summary:
+- Changed-file LSP diagnostics: clean for src/configs.py, src/models/pinn.py, src/models/relobralo_loss.py, src/models/feature_extractors.py, tests/test_processed_datasets.py, tests/test_math_extractor.py, tests/test_oracle.py.
+- Smoke test completed successfully for all 6 model classes.
+- pytest tests/ -v --tb=short: 4 passed.

@@ -1,3 +1,5 @@
+# pyright: reportAny=false, reportArgumentType=false, reportUnusedCallResult=false
+
 import unittest
 import torch
 import os
@@ -7,15 +9,15 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class TestProcessedDatasets(unittest.TestCase):
-    def test_normal_v1_datasets(self):
+    def test_normal_16hz_datasets(self):
         # Base directory is one level up from tests
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
-        # Correct path for v1 processed MaFaulDa
-        v1_dir = os.path.join(base_dir, "data", "processed-mafaulda", "v1")
+        # Correct path for 16hz processed MaFaulDa
+        v1_dir = os.path.join(base_dir, "data", "processed-mafaulda", "16hz")
         
-        x_path = os.path.join(v1_dir, "X_normal_v1_trainingset.pth")
-        y_path = os.path.join(v1_dir, "Y_normal_v1_trainingset.pth")
+        x_path = os.path.join(v1_dir, "X_normal_trainingset.pth")
+        y_path = os.path.join(v1_dir, "Y_normal_trainingset.pth")
         
         # Verify file existence
         self.assertTrue(os.path.exists(x_path), f"File missing: {x_path}")

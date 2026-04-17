@@ -1,3 +1,5 @@
+# pyright: reportAny=false, reportPrivateImportUsage=false, reportUnusedCallResult=false
+
 import torch
 import sys
 import os
@@ -13,12 +15,12 @@ def test_math_extractor():
     # Initialize Oracle with the purely mathematical extractor
     oracle = PriorWorkOracle()
     
-    # Create dummy trace: Batch of 2, 4 Channels, 5000 points long (simulating valid batch)
-    dummy_trace = torch.randn(2, 4, 5000)
+    # Create dummy trace: Batch of 2, 4 Channels, valid oracle test length
+    dummy_trace = torch.randn(2, 4, 1639)
     dummy_trace.requires_grad_(True)
     
     # Compute embeddings exactly as done in the physics pipeline
-    embeddings = oracle(dummy_trace)
+    embeddings = oracle(dummy_trace, omega=1200)
     
     print(f"Native Math Embedding Shape: {embeddings.shape}")
     

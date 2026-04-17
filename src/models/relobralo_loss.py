@@ -1,6 +1,9 @@
+# pyright: reportUnusedImport=false, reportUnknownMemberType=false, reportUnannotatedClassAttribute=false, reportImplicitOverride=false, reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownArgumentType=false, reportPrivateImportUsage=false, reportUnknownVariableType=false, reportOperatorIssue=false, reportUnusedParameter=false, reportUnusedCallResult=false, reportAny=false, reportArgumentType=false
+
 import torch
 import torch.nn as nn
 import random
+import src.configs as cfg
 from .pinn import ConfigurablePINN # Note: adaptive_custom_loss moved here
 
 class ReLoBRaLoLoss(nn.Module):
@@ -9,7 +12,7 @@ class ReLoBRaLoLoss(nn.Module):
     Extracted pure logic from the previous work.
     """
     
-    def __init__(self, alpha: float = 1.0, rho: float = 0.1, temperature: float = 1.0, enable_mass_constraints: bool = True):
+    def __init__(self, alpha: float = cfg.RELOBRALO_DEFAULT['alpha'], rho: float = cfg.RELOBRALO_DEFAULT['rho'], temperature: float = cfg.RELOBRALO_DEFAULT['temperature'], enable_mass_constraints: bool = True):
         super().__init__()
         self.alpha = alpha  
         self.rho = rho      

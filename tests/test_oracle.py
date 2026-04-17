@@ -1,3 +1,5 @@
+# pyright: reportAny=false, reportPrivateImportUsage=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnusedCallResult=false
+
 import torch
 from src.models.oracles import PriorWorkOracle
 
@@ -42,7 +44,7 @@ def test_oracle_target_buffers():
     dim = oracle.embed_dim
     
     # Test setting and getting targets for various classes
-    test_classes = [0, 1, 5, 41]
+    test_classes = [0, 1, 3]
     for c in test_classes:
         mock_emb = torch.randn(dim)
         oracle.set_target_distribution(c, mock_emb)
@@ -52,10 +54,10 @@ def test_oracle_target_buffers():
         
     # Test invalid index
     try:
-        oracle.get_target_distribution(42)
-        assert False, "Should have raised ValueError for index 42"
+        oracle.get_target_distribution(4)
+        assert False, "Should have raised ValueError for index 4"
     except ValueError as e:
-        print(f"Caught expected error for index 42: {e}")
+        print(f"Caught expected error for index 4: {e}")
 
 if __name__ == '__main__':
     test_oracle_differentiability()

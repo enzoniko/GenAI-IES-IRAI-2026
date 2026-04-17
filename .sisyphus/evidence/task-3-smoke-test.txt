@@ -1,0 +1,8 @@
+Successfully loaded normalization metadata from results\normalization_metadata.pth
+PINN weights found but shape mismatched. Using initialized weights.
+ConfigurablePINN: shape=(2, 4), dtype=torch.float64, warnings=none
+TSJEPA: shape=((2, 10, 128), (2, 10, 128)), dtype=torch.float32, warnings=none
+Decoder1: shape=(2, 4, 3014), dtype=torch.float32, warnings=none
+Decoder2CVAE: shape=((2, 4, 3014), (2, 64), (2, 64)), dtype=torch.float32, warnings=none
+LatentDiffusionMLP: shape=(2, 128), dtype=torch.float32, warnings=none
+PriorWorkOracle: shape=(2, 2240), dtype=torch.float32, warnings=none

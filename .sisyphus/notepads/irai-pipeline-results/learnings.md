@@ -34,3 +34,15 @@
 ## [2026-04-17] T1 data repair
 - Existing 16Hz processed tensors standardized on seq_length 3014; vertical-misalignment needed a targeted backfill using one closest-to-16Hz CSV per severity.
 - The processor already emits X=(N,T,10) and Y=(N,T,4); forcing min_window_size=3014 preserved compatibility with existing 16Hz tensors.
+
+## [2026-04-17] T2 Validation Shim Findings
+- Normalization compat: DIVERGES for X features, DIVERGES for Y.
+- Weight loading: FAIL with strict=True; PARTIAL SUCCESS with strict=False.
+- Key mismatch details (if any): old keys use NNfor{...}.model.3/.6 while new model uses .2/.4, indicating activation-layer indexing mismatch despite matching parameter count and shapes on shared keys.
+- pytest: FAIL — 1 passed, 3 failed.
+- Dtype boundaries found: processed signal path uses float64 internally then stores float32; dataset/JEPA/LDM paths are float32; PINN/oracle/physics loss paths promote to float64; oracle forward repeatedly crosses float32<->float64 around the PINN boundary.
+## [2026-04-17] T3: Code Audit + Fix
+- Restored PINN default activations to ELU and ReLoBRaLo defaults to alpha=0.5125, rho=0.2332, temperature=1.4198 to match the successful exported prior-work configuration.
+- Confirmed processed dataset tests must target data/processed-mafaulda/16hz with filenames that omit the legacy _v1 infix.
+- Audited src/models/pinn.py residual equations against previous-work-pinn/basicPINNv8.py: equations match; the only verified drift was an added 1e6 residual scaling, which was removed.
+- Stabilized MathFeatureExtractor by performing internal feature computations in float64 and returning the original dtype, eliminating NaN gradients in oracle math extraction.

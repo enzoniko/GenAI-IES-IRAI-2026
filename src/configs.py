@@ -53,13 +53,13 @@ PHASE0_TRAIN_SETTINGS = {
 PINN_ARCH_DEFAULT = {
     'unmeasured_net_config': {
         'hidden_layers': [128, 128],
-        'activation': 'tanh',
+        'activation': 'elu',
         'dropout_rate': 0.0,
         'init_method': 'xavier_normal'
     },
     'acceleration_net_config': {
         'hidden_layers': [128, 128],
-        'activation': 'tanh',
+        'activation': 'elu',
         'dropout_rate': 0.0,
         'init_method': 'xavier_normal'
     },
@@ -72,6 +72,12 @@ PINN_ARCH_DEFAULT = {
         }
     },
     'enable_mass_constraints': True
+}
+
+RELOBRALO_DEFAULT = {
+    'alpha': 0.5125,
+    'rho': 0.2332,
+    'temperature': 1.4198,
 }
 
 # ==============================================================================
