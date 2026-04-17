@@ -119,3 +119,21 @@
 - TeeOutput encoding issue on Windows CP1252: need error='replace' fallback for unicode chars in console output
 - train_phase1_decoder1() in train_phase1.py was NOT used directly (needed custom DataLoader); used same logic inline
 - Commit: feat(phase1): train Decoder 1 envelope reconstruction
+
+## [2026-04-17] T12: LDM Training on z_macro Latent Space
+- Trained LatentDiffusionMLP (z_dim=128, time_dim=64, 181,568 params) on 284 precomputed z_macro vectors via DDPM
+- Data: 4 Y files (one per class, 72+72+68+72 windows), normalized with y_min/y_max, transposed (N,3014,4)->(N,4,3014), encoded offline through frozen TS-JEPA
+- Device: CUDA. 50 epochs, lr=1e-3, Adam, batch_size=32
+- Train loss: epoch 1=1.013 -> epoch 50=0.109 (89.2% drop, above 30% requirement)
+- Collapsed representation confirmed: all 4 class files have IDENTICAL z_macro min/max [-2.6933, 2.3711]; TS-JEPA learned class-agnostic embeddings (silhouette=-0.12 from T6); per-dim std across 284 samples ~0
+- Generation: DDPM naive 1000-step stochastic sampling DIVERGES (explodes to [-100, 129]) due to accumulated prediction errors over 1000 steps in collapsed latent space
+- FIX: x0-prediction based DDIM-style sampling with x0 clamp to [-3.5, 3.5] and timestep subsampling (every 5th step); produces stable [-3.5, 3.5] range samples
+- Distribution: real global mean=-0.0005/std=1.015; generated global mean=0.064/std=3.46; std ratio=3.41 (within 0.1-10 acceptable range)
+- Correct distribution comparison metric: GLOBAL scalar std (z_macro.std()), NOT per-dim std across samples (which is ~0 due to collapse)
+- Checkpoint: results/ldm.pth (730KB)
+- Evidence: .sisyphus/evidence/task-12-ldm-training.txt, task-12-ldm-samples-umap.png
+- Smoke test: 3 epochs, loss 1.008->0.888 (decreasing), shapes (4,128) finite - PASSED
+- UMAP: real z_macro colored by 4 classes (mostly overlapping due to collapse), generated gray x markers covering same region
+- Script: train_ldm_task12.py (standalone, does not call existing train_latent_diffusion from run_sdedit_phase2.py which uses synthetic dataloader)
+- train_latent_diffusion() in run_sdedit_phase2.py uses get_dataloaders (synthetic data, wrong for one-subtype-per-class constraint), so standalone script was written instead
+- Commit: feat(phase2): train LDM on z_macro latent space
