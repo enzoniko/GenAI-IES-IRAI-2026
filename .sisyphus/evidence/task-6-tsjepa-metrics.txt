@@ -1,0 +1,15 @@
+=== TS-JEPA ENCODING METRICS ===
+
+z_macro shape: [284, 128]
+z_macro min:   -2.693362
+z_macro max:   2.371110
+z_macro mean:  -0.000548
+z_macro std:   1.015081
+
+Silhouette score (random_state=42): -0.122101
+
+Class distribution:
+  Class 0: 72 samples
+  Class 1: 72 samples
+  Class 2: 68 samples
+  Class 3: 72 samples

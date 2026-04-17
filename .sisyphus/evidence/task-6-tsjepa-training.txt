@@ -1,0 +1,34 @@
+=== TS-JEPA ONE-SUBTYPE-PER-CLASS TRAINING LOG ===
+
+Device: cuda
+Max epochs: 20
+Total samples: 284  (train=227, val=57)
+Batch size: 32
+Checkpoint: results\ts_jepa.pth
+
+--- Epoch-by-epoch log ---
+Epoch 1/20, TS-JEPA Train Loss: 0.3832, Val Loss: 0.0439
+Epoch 2/20, TS-JEPA Train Loss: 0.1144, Val Loss: 0.0088
+Epoch 3/20, TS-JEPA Train Loss: 0.0980, Val Loss: 0.0030
+Epoch 4/20, TS-JEPA Train Loss: 0.0880, Val Loss: 0.0022
+Epoch 5/20, TS-JEPA Train Loss: 0.0835, Val Loss: 0.0022
+Epoch 6/20, TS-JEPA Train Loss: 0.0835, Val Loss: 0.0016
+Epoch 7/20, TS-JEPA Train Loss: 0.0831, Val Loss: 0.0018
+Epoch 8/20, TS-JEPA Train Loss: 0.0836, Val Loss: 0.0017
+Epoch 9/20, TS-JEPA Train Loss: 0.0833, Val Loss: 0.0018
+Epoch 10/20, TS-JEPA Train Loss: 0.0838, Val Loss: 0.0018
+Epoch 11/20, TS-JEPA Train Loss: 0.0843, Val Loss: 0.0019
+Epoch 12/20, TS-JEPA Train Loss: 0.0858, Val Loss: 0.0021
+Epoch 13/20, TS-JEPA Train Loss: 0.0862, Val Loss: 0.0022
+Epoch 14/20, TS-JEPA Train Loss: 0.0876, Val Loss: 0.0022
+Epoch 15/20, TS-JEPA Train Loss: 0.0892, Val Loss: 0.0020
+Epoch 16/20, TS-JEPA Train Loss: 0.0887, Val Loss: 0.0021
+Epoch 17/20, TS-JEPA Train Loss: 0.0904, Val Loss: 0.0020
+Epoch 18/20, TS-JEPA Train Loss: 0.0912, Val Loss: 0.0020
+Epoch 19/20, TS-JEPA Train Loss: 0.0929, Val Loss: 0.0022
+Epoch 20/20, TS-JEPA Train Loss: 0.0948, Val Loss: 0.0020
+
+--- Summary ---
+First epoch train loss: 0.3832
+Final epoch train loss: 0.0948
+Converged (>10% drop):  True
