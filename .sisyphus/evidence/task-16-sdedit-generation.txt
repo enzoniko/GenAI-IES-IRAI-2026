@@ -1,0 +1,21 @@
+Task 16 - SDEdit Counterfactual Generation
+===========================================
+N samples per class: 40
+t_start: 400
+guidance_scale: 1.0
+device: cuda
+
+Generated z_macro stats:
+  Class 1 (Imbalance): min=-3.1200, max=2.9130, mean=0.0065
+  Class 2 (Vert.Mis.): min=-3.4080, max=3.0462, mean=0.0005
+  Class 3 (Overhang): min=-3.3247, max=3.0027, mean=0.0091
+
+Silhouette (mixed real+generated, PCA50): -0.3786
+Per-class MMD (generated vs real):
+  Class 1 (Imbalance): 1.0235
+  Class 2 (Vert.Mis.): 1.0238
+  Class 3 (Overhang):  1.0240
+
+Oracle guidance: oracle-vjp; penalty first->last class1=12946091.0000->13109561.0000, class2=10946888.0000->11587906.0000, class3=14285781.0000->5539209.5000
+Figures: task-16-sdedit-trajectory.png, task-16-signal-comparison.png
+Paper figs: assets/fig_sdedit_trajectory.pdf, assets/fig_signal_comparison.pdf

@@ -189,3 +189,69 @@
 - Workflow: X(N,T,10) -> normalize -> flatten(N*T,10) -> PINN batched -> residuals(N*T,4) + forces(N*T,4) -> physics_seq(N,T,8) -> MathFeatExt -> (N,2240)
 - UMAP(n_neighbors=15, min_dist=0.1) on PCA-50 space gives plausible visualization even without clean clusters
 - Files: assets/fig_pinn_umap_mafaulda.pdf (300 DPI PDF), .sisyphus/evidence/task-10-best-umap.png (150 DPI PNG)
+
+## [2026-04-17] T15: Baseline Training
+- VanillaDDPM: 181,568 params (exact match to LDM), trained 50 epochs on 284 z_macro vectors
+  - Epoch 1 loss=1.0149, Epoch 50 loss=0.1192, drop=88.3% (>30% threshold met)
+  - Checkpoint: results/baseline_vanilla.pth (714 KB)
+  - Sampling: 10 unconditional, DDIM-style x0-prediction, clamp=[-3.5,3.5], all finite
+- LabelConditionedDDPM: 181,824 params (=181,568 + 256 class_embedding), 50 epochs same setup
+  - Epoch 1 loss=1.0399, Epoch 50 loss=0.1244, drop=88.0% (>30% threshold met)
+  - Checkpoint: results/baseline_label.pth (716 KB)
+  - Sampling: 40 samples (10 per class), DDIM-style, all finite
+- Same hyperparams as T12 (epochs=50, lr=1e-3, Adam, batch_size=32) for fair comparison
+- z_macro collapse confirmed: all 4 classes have nearly identical embeddings (range [-2.69, 2.37], std~1.01)
+- DDIM fix critical: naive 1000-step sampling hits clamp ceiling [-3.5, 3.5]; subsampled every-5th-step x0-prediction is stable
+- get_loss() API handles scheduler device placement internally (_move_scheduler_to called inside)
+- Evidence: .sisyphus/evidence/task-15-baseline-training.txt
+
+## [2026-04-17] T13: Decoder 2 CVAE
+
+### Setup
+- Standalone script: train_decoder2_cvae.py
+- Y files: 4 classes (normal, imbalance_20g, vmisalign_1.27mm, overhang_ball_20g)
+- Data: 284 windows (72+72+68+72), shape (N, 4, T=3014) after (N,T,4) -> permute
+- Normalization: y_min/y_max from normalization_metadata.pth -> range [0,1]
+- TS-JEPA (5.96M params) + Decoder1 (16.7M params): both frozen
+- Decoder2CVAE: 23.58M params, latent_dim=64, context_dim=128, seq_length=3014, num_classes=4
+
+### Training
+- Precomputed residual dataset (z_macro, residual, label) for train/val
+- Train: 228 windows, Val: 56 windows (interleaved 80/20)
+- beta_kl=0.01, lr=1e-3, batch_size=16, max_epochs=50, patience=15
+- Early stopped at epoch 39, best epoch=24 (val_elbo=0.0066)
+- Final KL=0.000405: NOT COLLAPSED (>0, as required)
+- Checkpoint: results/decoder2.pth (94.36MB)
+
+### API
+- Decoder2CVAE.forward(residual, z_macro, label) -> (recon_residual, mu, logvar)
+- residual shape: (B, 4, T) in normalized domain
+- label: (B,) long tensor (class index 0-3)
+- dec2.sample(z_macro, label) -> sampled jitter (B, 4, T)
+- total_reconstruction = decoder1_output + dec2.sample(z_macro, label)
+
+### Notes
+- KL remains low but above 0 (typical for beta-VAE with small beta and limited data)
+- z_macro collapse from T12 confirmed: conditioning provides limited class separation
+- residual = Y_normalized - Decoder1(z_macro) in normalized [0,1] domain
+- Evidence: .sisyphus/evidence/task-13-*.txt and *.png
+
+
+## [2026-04-17] T14: Phase 1 Validation
+- Full inference pipeline ran successfully: TS-JEPA.get_z_macro() -> Decoder1 -> Decoder2CVAE.sample()
+- envelope_RMSE: cls0=0.0249, cls1=0.0631, cls2=0.0546, cls3=0.1218 (normalized units)
+- full_RMSE (D1+D2): cls0=0.0259, cls1=0.0635, cls2=0.0550, cls3=0.1219
+- Improvement %: all classes show slight *negative* improvement (~0-4%) — CVAE jitter adds stochastic variation, not RMSE reduction; this is expected (CVAE is distribution-matching, not residual fitting)
+- val_ELBO = 0.0066 (from T13 evidence), Silhouette_pca50 = 0.0789 (from T10)
+- Twin plot left panel: used results-synthetic/umap_latent_space.png (T8 artifact)
+- All 4 outputs created: task-14-phase1-metrics.txt, task-14-reconstruction-overlay.png, task-14-twin-plot-preview.png, assets/fig_phase1_validation.pdf
+- Key API: TSJEPA uses get_z_macro(x) not encode(x)
+
+## [2026-04-17] T16: SDEdit Generation
+- t_start=400, guidance_scale=1.0, N=40 per class
+- Oracle guidance: oracle-vjp
+- Silhouette mixed: -0.3786
+- MMD per class: cls1=1.0235, cls2=1.0238, cls3=1.0240
+- Generated signal stats: normalized outputs stayed within [-0.0890, 0.6550] with stable decoded envelopes+jitter
+- Counterfactuals saved: results\sdedit_counterfactuals.pth
+- Oracle penalty summaries: cls1 12946091.0000->13109561.0000, cls2 10946888.0000->11587906.0000, cls3 14285781.0000->5539209.5000
