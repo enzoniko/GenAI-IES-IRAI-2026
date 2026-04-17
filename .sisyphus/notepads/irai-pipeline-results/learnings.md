@@ -137,3 +137,39 @@
 - Script: train_ldm_task12.py (standalone, does not call existing train_latent_diffusion from run_sdedit_phase2.py which uses synthetic dataloader)
 - train_latent_diffusion() in run_sdedit_phase2.py uses get_dataloaders (synthetic data, wrong for one-subtype-per-class constraint), so standalone script was written instead
 - Commit: feat(phase2): train LDM on z_macro latent space
+
+## [2026-04-17] T8: Synthetic Oscillator (Paper-Aligned 1D Damped Oscillator + Synthetic Pipeline)
+
+### What Was Built
+- NEW: `src/data/paper_synthetic_oscillator.py` — paper Eq. 4 oscillator: m*x'' + c*x' + k*x = A*sin(w0*t), m=1, c=0.5, k=4.0, A=1.0, w0=1.0
+- NEW: `main_synthetic.py` — full Phase 0->1->2 synthetic pipeline entry point with cfg path overrides
+- Fault classes: 0=healthy, 1=stiffness reduction (k->0.5k), 2=damping increase (c->2c), 3=forcing perturbation (A->2A)
+- RK45 integration via scipy.integrate.solve_ivp; observable = acceleration x''(t) + Gaussian noise
+- 4-channel compatibility: 1D signal replicated across 4 channels with small independent noise
+- X tensor format: (N, T, 10) with features [vel_ch1..ch4, pos_ch1..ch4, omega, time]; omega=w0=1.0
+- 50 train + 10 test samples per class -> data/processed-synthetic/ (20 .pth files)
+
+### Pipeline Results (Reduced Epochs)
+- Phase 0 PINN (50 epochs): physics residual loss ~3.4M (expected — rotor equations don't match 1D oscillator), normalization metadata saved correctly
+- Phase 1 TS-JEPA (20 epochs): val loss 0.2831 -> 0.0018 (well converged)
+- Phase 2 LDM (20 epochs): train loss 1.031 -> 0.335
+- All checkpoints saved to results-synthetic/ (NOT results/)
+
+### Fairness Metrics
+- Oracle accuracy: 0.9938 +/- 0.0125 (5-fold CV, 160 real samples, 4 classes)
+- TSTR accuracy: 0.2500 (LDM-generated z_macro pseudo-labeled, tested on real)
+- TSTR/Oracle ratio: 0.2516 — WARN: below acceptable floor of 0.30
+- Root cause: 20-epoch LDM + unconditional generation -> poor pseudo-label quality via centroid assignment
+- Expected to improve with more LDM epochs or conditional generation
+
+### Key Discoveries
+- Windows cp1252 encoding: Unicode arrow chars in print() cause UnicodeEncodeError; use ASCII (->)
+- TeeBuffer recursion bug: capture original stdout reference BEFORE replacing sys.stdout
+- cfg override pattern: set cfg.RESULTS_DIR etc. at module level BEFORE other imports
+- UMAP plot in train_phase1.py hardcoded to results/ (not cfg-aware) — minor issue
+- Oscillator dynamics verified: distinct ranges per class (healthy xddot [-0.42,0.45], stiffness- [-1.01,1.06], damping+ [-0.85,1.16], forcing+ [-1.05,0.89])
+
+### Evidence Files
+- .sisyphus/evidence/task-8-oscillator-check.txt
+- .sisyphus/evidence/task-8-synthetic-pipeline.txt
+- .sisyphus/evidence/task-8-fairness.txt

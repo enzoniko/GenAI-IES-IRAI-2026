@@ -1,0 +1,21 @@
+paper_synthetic_oscillator.py – oscillator check
+Generated at: 2026-04-17T17:37:46.690065
+
+ODE:  m*x'' + c*x' + k*x = A*sin(ω₀*t)
+Healthy params: m=1, c=0.5, k=4.0, A=1.0, ω₀=1.0
+Fault classes:
+  0 – Healthy:              k=4.0 (baseline)
+  1 – Stiffness reduction:  k->0.5k=2.0 (crack analog)
+  2 – Damping increase:     c->2c=1.0   (lubrication analog)
+  3 – Forcing perturbation: A->2A=2.0   (imbalance analog)
+
+SEQ_LENGTH = 3014  @ TARGET_HZ = 16.0 Hz
+Total duration per window ≈ 188.4 s
+Samples per class: 50 train + 10 test = 60 total
+Y format: (N, T, 4) — 4-channel acceleration (ch1=true, ch2-4=+noise)
+X format: (N, T, 10) — [vel×4, pos×4, omega=1.0, time]
+
+  Class 0: xddot range=[-0.4219, 0.4496]  x range=[-0.3575, 0.3288]
+  Class 1: xddot range=[-1.0134, 1.0616]  x range=[-0.9343, 0.9538]
+  Class 2: xddot range=[-0.8451, 1.1644]  x range=[-0.3165, 0.4133]
+  Class 3: xddot range=[-1.0471, 0.8918]  x range=[-0.7023, 0.6685]
