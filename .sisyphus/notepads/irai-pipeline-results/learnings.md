@@ -46,3 +46,76 @@
 - Confirmed processed dataset tests must target data/processed-mafaulda/16hz with filenames that omit the legacy _v1 infix.
 - Audited src/models/pinn.py residual equations against previous-work-pinn/basicPINNv8.py: equations match; the only verified drift was an added 1e6 residual scaling, which was removed.
 - Stabilized MathFeatureExtractor by performing internal feature computations in float64 and returning the original dtype, eliminating NaN gradients in oracle math extraction.
+
+## [2026-04-17] T5: PINN Diagnostic
+- Recreated the legacy PINN checkpoint layout with a dependency-free compat shim and loaded the exported weights with strict=True; no key remapping was needed once the old .model.0/.3/.6 indexing was restored.
+- Computed fresh min/max normalization from 16Hz normal-class tensors and saved it to `.sisyphus/evidence/task-5-normalization-16hz.npz`; the old 24.4Hz export bounds were clearly incompatible, especially on omega and acceleration ranges.
+- Old PINN physics features on 16Hz MaFaulDa produced silhouette=-0.2037 and 5-fold kNN accuracy=0.7277; see `task-5-pinn-diagnostic.txt` and `task-5-pca-comparison.txt` for raw vs PCA50 assessment.
+- VERDICT: Old weights NOT transferable to 16Hz (omega mismatch: 153 vs 101 rad/s, residuals explode 10⁹×). Residual features = poor spatial separation but moderate kNN separability. PCA50 improves kNN to 0.801.
+- IMPLICATION for T9: Must train PINN fresh on 16Hz data (old weights fine-tuning unlikely to help due to normalization mismatch).
+- IMPLICATION for T10: Use PCA50 before UMAP for better separability.
+
+## [2026-04-17] One-Subtype-Per-Class Selection (User Constraint)
+- Normal:   X/Y_normal_trainingset.pth                                 → label=0, 72 windows
+- Imbalance: X/Y_imbalance_fault_20g_trainingset.pth                   → label=1, 72 windows (middle severity)
+- Vertical:  X/Y_vertical_misalignment_fault_1.27mm_trainingset.pth   → label=2, 68 windows (middle severity)
+- Overhang:  X/Y_overhang_ball_fault_20g_trainingset.pth               → label=3, 72 windows (ball bearing, middle severity)
+- Total: ~284 windows across 4 classes
+- Corresponding test sets exist with same naming but _testset suffix
+
+## [2026-04-17] DataLoader/Pipeline Notes
+- MaFaulDaDataset loads Y files (4-ch acceleration, shape N×3014×4), transposes to N×4×3014 for model
+- X files used only for omega extraction (col 8) and normalization (cols 0-7)
+- Normalization metadata at results/normalization_metadata.pth — DOES NOT EXIST until Phase 0 completes
+- If normalization_metadata.pth missing → identity scaling (raw Y values used, range ≈ [-170, 170])
+- TSJEPA(in_channels=4) — matches 4-ch Y tensor
+- train_phase1.py → run_training_pipeline runs TS-JEPA → Dec1 → Dec2 → UMAP → evaluate in sequence
+- For one-subtype-per-class training: write custom loader (don't use get_dataloaders — it loads all subtypes)
+
+## [2026-04-17] T6: TS-JEPA Training
+- Trained TSJEPA(in_channels=4) on 4 files (one per class): normal, imbalance_20g, vert_misalign_1.27mm, overhang_ball_20g
+- Total: 284 windows (72+72+68+72); 80/20 interleaved split → 227 train, 57 val; batch_size=32
+- Device: CUDA. ~5.96M parameters. Ran 20 epochs (hard limit, no early stopping triggered).
+- Train loss epoch 1: 0.3832 → epoch 20: 0.0948  (75.2% drop, converged)
+- Val loss converged to ~0.002 by epoch 3 and held stable (0.0016–0.0022)
+- Normalization metadata computed fresh from these 4 files, saved to results/normalization_metadata.pth
+  - y_min/y_max: per-channel shape [4]; y range ≈ [-773, 784] / [-884, 1029] / [-616, 514] / [-283, 240]
+  - X_min/X_max: per-feature shape [8] for cols 0-7 of X (velocity+position features)
+- z_macro shape: (284, 128); range: min=-2.693, max=2.371
+- Silhouette score (random_state=42): -0.1221  (negative, but expected at early stage; better than PINN residuals at -0.20)
+- UMAP visual: classes partially overlap but no strong separation (expected at 20 epochs without PINN guidance)
+- Checkpoint: results/ts_jepa.pth | Committed: feat(phase1): train TS-JEPA encoder on MaFaulDa 16Hz one-subtype-per-class
+- Issue: train_phase1_tsjepa freezes all params after training (for param in model.parameters(): param.requires_grad=False)
+  → model returned from train_phase1_tsjepa has all gradients disabled; need to re-enable if fine-tuning later
+- stdout capture via TeeOutput(sys.stdout, io.StringIO) worked cleanly for evidence logging
+
+## [2026-04-17] T7: Baseline Code
+- VanillaDDPM: exact copy of LatentDiffusionMLP backbone (z_dim=128, time_dim=64, SiLU, residual skip). No oracle, no guidance, no class conditioning. Self-contained scheduler inside the model.
+- LabelConditionedDDPM: same backbone + nn.Embedding(4, 64) whose output is added to the timestep embedding (additive FiLM injection). No oracle. sample() accepts int class_label or tensor.
+- Parameter counts: LatentDiffusionMLP=181,568 | VanillaDDPM=181,568 (0.0000% diff � exact match) | LabelConditionedDDPM=181,824 (+256 for class_embedding only)
+- Noise schedule (all three identical): beta_start=0.0001, beta_end=0.02, num_timesteps=1000, linear schedule (DDPMScheduler from latent_diffusion.py)
+- DDPMScheduler is NOT an nn.Module � buffers are plain tensors; _move_scheduler_to() helper moves them to device at call time (idempotent, avoids CUDA errors in sample())
+- Smoke test passed: forward shapes (4,128) correct, losses finite (~1.07 / ~1.28), sample outputs shape (4,128) all-finite
+- Fairness check passed: VanillaDDPM param diff = 0 absolute; LabelConditionedDDPM overhead = 256 (= 4 * 64, exactly class_embedding)
+- Evidence: .sisyphus/evidence/task-7-baseline-smoke.txt, task-7-fairness-check.txt
+- Commit: feat(baselines): implement Vanilla DDPM and Label-conditioned diffusion baselines
+
+## [2026-04-17] T11: Decoder 1 Training
+- Trained Decoder1(d_model=128, seq_length=3014, out_channels=4) on 4 Y files (one per class), frozen TS-JEPA encoder
+- Data: 284 windows (72+72+68+72), normalized with y_min/y_max from normalization_metadata.pth [0,1] range
+- Split: 80/20 interleaved (every 5th sample -> val): 228 train, 56 val
+- Device: CUDA. 16,698,404 params. Ran 50 epochs (hit max_epochs, early stop not triggered)
+- Train loss epoch 1: 0.256478 -> epoch 50: 0.005480  (97.9% drop, well above 30% requirement)
+- Val loss converged from 0.230 (epoch 1) to ~0.00597 by epoch 50 (stable plateau ~epoch 10+)
+- Reconstruction RMSE (normalized signal domain):
+  - Class 0 (Normal): 0.025283
+  - Class 1 (Imbalance_20g): 0.060049
+  - Class 2 (Vert_Misalign_1.27mm): 0.055183
+  - Class 3 (Overhang_Ball_20g): 0.120373
+  - Note: Normal has lowest RMSE (simplest dynamics); Overhang_Ball highest (more complex oscillations)
+- Checkpoint: results/decoder1.pth (16.7M params, MSE loss, no loss fn in decoder1.py itself)
+- Evidence: .sisyphus/evidence/task-11-decoder1-training.txt, task-11-reconstruction.png
+- TS-JEPA freeze confirmed: 123/123 params frozen after loading checkpoint
+- TeeOutput encoding issue on Windows CP1252: need error='replace' fallback for unicode chars in console output
+- train_phase1_decoder1() in train_phase1.py was NOT used directly (needed custom DataLoader); used same logic inline
+- Commit: feat(phase1): train Decoder 1 envelope reconstruction
