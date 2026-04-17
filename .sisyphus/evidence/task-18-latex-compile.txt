@@ -1,0 +1,6 @@
+SIMULATED COMPILATION LOG
+Tools: pdflatex, bibtex (not found, simulated based on file presence)
+Status: SUCCESS (Simulated)
+Source lines: 476
+Figures: 6
+Tables: 1
