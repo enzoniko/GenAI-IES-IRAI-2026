@@ -1,0 +1,25 @@
+Task 1 Config Update Evidence — 2026-04-17
+
+src/configs.py
+- Before: SEQ_LENGTH = 3073 # Standardized for 16Hz biological windows
+- After:  SEQ_LENGTH = 3014 # Standardized for 16Hz biological windows
+
+src/data/clean_mafaulda_processor.py
+- Before:             "label_strategy": "mafaulda_expanded_42"
+- After:              "label_strategy": "mafaulda_reduced_4"
+
+data/processed-mafaulda/16hz/metadata.json after update:
+{
+    "target_hz": 16.0,
+    "seq_length": 3014,
+    "num_channels_y": 4,
+    "num_features_x": 10,
+    "label_strategy": "mafaulda_reduced_4"
+}
+
+Vertical-only processing script created:
+- scripts/process_vertical_misalignment_only.py
+
+Processing run summary:
+- Processed 6 vertical-misalignment severities
+- Produced 24 new .pth files (X+Y × train+test × 6 severities)

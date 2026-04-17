@@ -10,15 +10,15 @@ import os
 # ==============================================================================
 # Dataset organization
 DATASET_VERSION = "v1"
-TARGET_HZ = 17.0
+TARGET_HZ = 16.0
 DATA_DIR_RAW = "data/raw-mafaulda/"
-# Processed data will be in categorical subfolders named after the frequency (e.g. data/processed-mafaulda/30hz/)
+# Processed data will be in categorical subfolders named after the frequency (e.g. data/processed-mafaulda/16hz/)
 DATA_DIR_PROCESSED = f"data/processed-mafaulda/{int(TARGET_HZ)}hz"
 RESULTS_DIR = "results"
 
-# Number of classes in the expanded MaFaulDa dataset
-NUM_CLASSES = 42
-SEQ_LENGTH = 1639 # Standardized for 30Hz biological windows
+# Number of classes in the reduced MaFaulDa dataset
+NUM_CLASSES = 4
+SEQ_LENGTH = 3014 # Standardized for 16Hz biological windows
 
 # How much windows will be used from the dataset
 WINDOW_PCT = 0.90
@@ -42,7 +42,7 @@ LDM_MODEL_PATH = os.path.join(RESULTS_DIR, "ldm.pth")
 PHASE0_TRAIN_SETTINGS = {
     'epochs': 100000,
     'batch_size': 128,
-    'rotation_hz': 30,
+        'rotation_hz': 16,
     'training_windows': 1000,
     'test_windows': 20,
     'early_stop_patience': 20,
@@ -52,13 +52,13 @@ PHASE0_TRAIN_SETTINGS = {
 
 PINN_ARCH_DEFAULT = {
     'unmeasured_net_config': {
-        'hidden_layers': [64, 64],
+        'hidden_layers': [128, 128],
         'activation': 'tanh',
         'dropout_rate': 0.0,
         'init_method': 'xavier_normal'
     },
     'acceleration_net_config': {
-        'hidden_layers': [64, 64],
+        'hidden_layers': [128, 128],
         'activation': 'tanh',
         'dropout_rate': 0.0,
         'init_method': 'xavier_normal'

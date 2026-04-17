@@ -1,0 +1,7 @@
+{
+    "target_hz": 16.0,
+    "seq_length": 3014,
+    "num_channels_y": 4,
+    "num_features_x": 10,
+    "label_strategy": "mafaulda_reduced_4"
+}

@@ -1,0 +1,45 @@
+Task 1 Data Validation — 2026-04-17
+
+Verification script output:
+Total .pth files: 84
+Shape check: PASS
+Files per class: {'normal': 4, 'imbalance': 28, 'vertical': 24, 'overhang': 28}
+Expected: normal=4, imbalance=28, vertical=24, overhang=32
+Vertical files: 24, expected: 24
+
+Vertical tensor shapes:
+  X_vertical_misalignment_fault_0.51mm_testset.pth: (2, 3014, 10)
+  X_vertical_misalignment_fault_0.51mm_trainingset.pth: (72, 3014, 10)
+  X_vertical_misalignment_fault_0.63mm_testset.pth: (2, 3014, 10)
+  X_vertical_misalignment_fault_0.63mm_trainingset.pth: (68, 3014, 10)
+  X_vertical_misalignment_fault_1.27mm_testset.pth: (2, 3014, 10)
+  X_vertical_misalignment_fault_1.27mm_trainingset.pth: (68, 3014, 10)
+  X_vertical_misalignment_fault_1.40mm_testset.pth: (2, 3014, 10)
+  X_vertical_misalignment_fault_1.40mm_trainingset.pth: (70, 3014, 10)
+  X_vertical_misalignment_fault_1.78mm_testset.pth: (2, 3014, 10)
+  X_vertical_misalignment_fault_1.78mm_trainingset.pth: (71, 3014, 10)
+  X_vertical_misalignment_fault_1.90mm_testset.pth: (2, 3014, 10)
+  X_vertical_misalignment_fault_1.90mm_trainingset.pth: (72, 3014, 10)
+  Y_vertical_misalignment_fault_0.51mm_testset.pth: (2, 3014, 4)
+  Y_vertical_misalignment_fault_0.51mm_trainingset.pth: (72, 3014, 4)
+  Y_vertical_misalignment_fault_0.63mm_testset.pth: (2, 3014, 4)
+  Y_vertical_misalignment_fault_0.63mm_trainingset.pth: (68, 3014, 4)
+  Y_vertical_misalignment_fault_1.27mm_testset.pth: (2, 3014, 4)
+  Y_vertical_misalignment_fault_1.27mm_trainingset.pth: (68, 3014, 4)
+  Y_vertical_misalignment_fault_1.40mm_testset.pth: (2, 3014, 4)
+  Y_vertical_misalignment_fault_1.40mm_trainingset.pth: (70, 3014, 4)
+  Y_vertical_misalignment_fault_1.78mm_testset.pth: (2, 3014, 4)
+  Y_vertical_misalignment_fault_1.78mm_trainingset.pth: (71, 3014, 4)
+  Y_vertical_misalignment_fault_1.90mm_testset.pth: (2, 3014, 4)
+  Y_vertical_misalignment_fault_1.90mm_trainingset.pth: (72, 3014, 4)
+
+Representative class tensor shapes:
+  normal: X examples=[(2, 3014, 10), (72, 3014, 10)] Y examples=[(2, 3014, 4), (72, 3014, 4)]
+  imbalance: X examples=[(2, 3014, 10), (70, 3014, 10)] Y examples=[(2, 3014, 4), (70, 3014, 4)]
+  vertical: X examples=[(2, 3014, 10), (72, 3014, 10)] Y examples=[(2, 3014, 4), (72, 3014, 4)]
+  overhang: X examples=[(2, 3014, 10), (70, 3014, 10)] Y examples=[(2, 3014, 4), (70, 3014, 4)]
+
+Shape summary:
+- X tensors use N×3014×10
+- Y tensors use N×3014×4
+- Added vertical-misalignment tensors satisfy the required 24 files and sequence length 3014

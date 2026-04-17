@@ -289,7 +289,7 @@ class CleanMaFaulDaProcessor:
             "seq_length": int(global_min_window),
             "num_channels_y": 4,
             "num_features_x": 10,
-            "label_strategy": "mafaulda_expanded_42"
+            "label_strategy": "mafaulda_reduced_4"
         }
         meta_path = self.processed_data_dir / "metadata.json"
         with open(meta_path, 'w') as f:
