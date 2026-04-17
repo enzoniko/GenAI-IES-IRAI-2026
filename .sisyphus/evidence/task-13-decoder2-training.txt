@@ -1,0 +1,64 @@
+=== T13: Decoder 2 CVAE Training ===
+Architecture: Decoder2CVAE, params=23,584,068
+  EncoderCVAE + DecoderCVAE (latent_dim=64, context_dim=128, num_classes=4)
+Data: 284 windows (72+72+68+72), z_jitter_dim=64, z_macro_dim=128
+  Labels: 0=normal, 1=imbalance_20g, 2=vmisalign_1.27mm, 3=overhang_ball_20g
+  SEQ_LENGTH=3014
+Split: train=228, val=56 (interleaved 80/20)
+Hyperparams: lr=0.001, batch_size=16, beta_kl=0.01, patience=15
+
+Training log (selected epochs):
+  Epoch   1: total=0.0371, recon=0.0263, kl=1.0835 | val_elbo=0.0101
+  Epoch  10: total=0.0062, recon=0.0062, kl=0.0010 | val_elbo=0.0067
+  Epoch  24: total=0.0057, recon=0.0057, kl=0.0003 | val_elbo=0.0066
+  Epoch  25: total=0.0058, recon=0.0058, kl=0.0003 | val_elbo=0.0066
+  Epoch  39: total=0.0059, recon=0.0059, kl=0.0001 | val_elbo=0.0067
+
+Full training log:
+  Epoch   1: total=0.0371, recon=0.0263, kl=1.0835 | val_elbo=0.0101
+  Epoch   2: total=0.0067, recon=0.0064, kl=0.0348 | val_elbo=0.0076
+  Epoch   3: total=0.0060, recon=0.0058, kl=0.0114 | val_elbo=0.0069
+  Epoch   4: total=0.0057, recon=0.0057, kl=0.0051 | val_elbo=0.0068
+  Epoch   5: total=0.0059, recon=0.0058, kl=0.0032 | val_elbo=0.0068
+  Epoch   6: total=0.0059, recon=0.0059, kl=0.0015 | val_elbo=0.0067
+  Epoch   7: total=0.0060, recon=0.0060, kl=0.0011 | val_elbo=0.0067
+  Epoch   8: total=0.0060, recon=0.0060, kl=0.0011 | val_elbo=0.0067
+  Epoch   9: total=0.0057, recon=0.0057, kl=0.0010 | val_elbo=0.0067
+  Epoch  10: total=0.0062, recon=0.0062, kl=0.0010 | val_elbo=0.0067
+  Epoch  11: total=0.0061, recon=0.0061, kl=0.0013 | val_elbo=0.0067
+  Epoch  12: total=0.0058, recon=0.0058, kl=0.0009 | val_elbo=0.0066
+  Epoch  13: total=0.0059, recon=0.0059, kl=0.0008 | val_elbo=0.0067
+  Epoch  14: total=0.0057, recon=0.0057, kl=0.0006 | val_elbo=0.0067
+  Epoch  15: total=0.0059, recon=0.0059, kl=0.0006 | val_elbo=0.0066
+  Epoch  16: total=0.0060, recon=0.0060, kl=0.0005 | val_elbo=0.0067
+  Epoch  17: total=0.0058, recon=0.0058, kl=0.0005 | val_elbo=0.0067
+  Epoch  18: total=0.0058, recon=0.0058, kl=0.0006 | val_elbo=0.0067
+  Epoch  19: total=0.0059, recon=0.0059, kl=0.0006 | val_elbo=0.0067
+  Epoch  20: total=0.0055, recon=0.0055, kl=0.0005 | val_elbo=0.0066
+  Epoch  21: total=0.0056, recon=0.0056, kl=0.0005 | val_elbo=0.0066
+  Epoch  22: total=0.0058, recon=0.0058, kl=0.0003 | val_elbo=0.0066
+  Epoch  23: total=0.0059, recon=0.0059, kl=0.0003 | val_elbo=0.0067
+  Epoch  24: total=0.0057, recon=0.0057, kl=0.0003 | val_elbo=0.0066
+  Epoch  25: total=0.0058, recon=0.0058, kl=0.0003 | val_elbo=0.0066
+  Epoch  26: total=0.0056, recon=0.0056, kl=0.0003 | val_elbo=0.0066
+  Epoch  27: total=0.0057, recon=0.0057, kl=0.0003 | val_elbo=0.0066
+  Epoch  28: total=0.0058, recon=0.0058, kl=0.0002 | val_elbo=0.0066
+  Epoch  29: total=0.0058, recon=0.0058, kl=0.0001 | val_elbo=0.0066
+  Epoch  30: total=0.0060, recon=0.0060, kl=0.0001 | val_elbo=0.0067
+  Epoch  31: total=0.0059, recon=0.0059, kl=0.0001 | val_elbo=0.0066
+  Epoch  32: total=0.0061, recon=0.0061, kl=0.0002 | val_elbo=0.0067
+  Epoch  33: total=0.0055, recon=0.0055, kl=0.0002 | val_elbo=0.0066
+  Epoch  34: total=0.0057, recon=0.0057, kl=0.0002 | val_elbo=0.0066
+  Epoch  35: total=0.0061, recon=0.0061, kl=0.0001 | val_elbo=0.0067
+  Epoch  36: total=0.0056, recon=0.0056, kl=0.0001 | val_elbo=0.0066
+  Epoch  37: total=0.0056, recon=0.0056, kl=0.0002 | val_elbo=0.0066
+  Epoch  38: total=0.0056, recon=0.0056, kl=0.0002 | val_elbo=0.0066
+  Epoch  39: total=0.0059, recon=0.0059, kl=0.0001 | val_elbo=0.0067
+
+Final (best checkpoint, epoch 24):
+  ELBO: 0.0066
+  Recon loss: 0.0066
+  KL divergence: 0.000405
+  KL status: NOT COLLAPSED
+
+Checkpoint: results/decoder2.pth (94.36MB)
