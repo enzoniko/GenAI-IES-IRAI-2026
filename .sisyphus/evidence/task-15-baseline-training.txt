@@ -1,0 +1,220 @@
+=== T15: Baseline Diffusion Experiments ===
+Data: 284 z_macro vectors (encoded offline), z_dim=128, classes=4
+Training config: epochs=50, lr=0.001, Adam, batch_size=32
+
+=== VanillaDDPM ===
+Parameters: 181,568
+Epoch 1: loss=1.0149
+Epoch 25: loss=0.1483
+Epoch 50: loss=0.1192
+Loss drop: 88.3%
+Checkpoint: results/baseline_vanilla.pth (714 KB)
+Sampling: 10 unconditional samples, range=[-3.50, 3.50], finite=True
+
+=== LabelConditionedDDPM ===
+Parameters: 181,824
+Epoch 1: loss=1.0399
+Epoch 25: loss=0.1661
+Epoch 50: loss=0.1244
+Loss drop: 88.0%
+Checkpoint: results/baseline_label.pth (716 KB)
+Sampling: 40 samples (10 per class), range=[-3.50, 3.50], finite=True
+
+=== Full VanillaDDPM loss curve ===
+  Epoch   1: 1.014865
+  Epoch   2: 0.933661
+  Epoch   3: 0.881136
+  Epoch   4: 0.818528
+  Epoch   5: 0.749838
+  Epoch   6: 0.676585
+  Epoch   7: 0.590463
+  Epoch   8: 0.500780
+  Epoch   9: 0.456062
+  Epoch  10: 0.411906
+  Epoch  11: 0.385144
+  Epoch  12: 0.350908
+  Epoch  13: 0.324481
+  Epoch  14: 0.301995
+  Epoch  15: 0.271636
+  Epoch  16: 0.249919
+  Epoch  17: 0.231454
+  Epoch  18: 0.214454
+  Epoch  19: 0.234372
+  Epoch  20: 0.191716
+  Epoch  21: 0.187037
+  Epoch  22: 0.177739
+  Epoch  23: 0.168211
+  Epoch  24: 0.163973
+  Epoch  25: 0.148323
+  Epoch  26: 0.141750
+  Epoch  27: 0.159216
+  Epoch  28: 0.135664
+  Epoch  29: 0.135105
+  Epoch  30: 0.121673
+  Epoch  31: 0.144589
+  Epoch  32: 0.141678
+  Epoch  33: 0.139431
+  Epoch  34: 0.144564
+  Epoch  35: 0.154198
+  Epoch  36: 0.122013
+  Epoch  37: 0.131562
+  Epoch  38: 0.137529
+  Epoch  39: 0.110502
+  Epoch  40: 0.141390
+  Epoch  41: 0.121728
+  Epoch  42: 0.152067
+  Epoch  43: 0.128597
+  Epoch  44: 0.113621
+  Epoch  45: 0.136722
+  Epoch  46: 0.128583
+  Epoch  47: 0.133121
+  Epoch  48: 0.128071
+  Epoch  49: 0.102300
+  Epoch  50: 0.119196
+
+=== Full LabelConditionedDDPM loss curve ===
+  Epoch   1: 1.039852
+  Epoch   2: 0.989376
+  Epoch   3: 0.935703
+  Epoch   4: 0.897684
+  Epoch   5: 0.837696
+  Epoch   6: 0.787365
+  Epoch   7: 0.725965
+  Epoch   8: 0.644178
+  Epoch   9: 0.574881
+  Epoch  10: 0.506500
+  Epoch  11: 0.467721
+  Epoch  12: 0.420514
+  Epoch  13: 0.406793
+  Epoch  14: 0.348839
+  Epoch  15: 0.313195
+  Epoch  16: 0.300991
+  Epoch  17: 0.293953
+  Epoch  18: 0.272406
+  Epoch  19: 0.254527
+  Epoch  20: 0.246199
+  Epoch  21: 0.208673
+  Epoch  22: 0.200918
+  Epoch  23: 0.190195
+  Epoch  24: 0.177661
+  Epoch  25: 0.166123
+  Epoch  26: 0.158816
+  Epoch  27: 0.173688
+  Epoch  28: 0.157476
+  Epoch  29: 0.155702
+  Epoch  30: 0.153365
+  Epoch  31: 0.148650
+  Epoch  32: 0.169075
+  Epoch  33: 0.143712
+  Epoch  34: 0.130877
+  Epoch  35: 0.154954
+  Epoch  36: 0.122568
+  Epoch  37: 0.156790
+  Epoch  38: 0.129363
+  Epoch  39: 0.140092
+  Epoch  40: 0.133307
+  Epoch  41: 0.142486
+  Epoch  42: 0.153779
+  Epoch  43: 0.146137
+  Epoch  44: 0.132085
+  Epoch  45: 0.117781
+  Epoch  46: 0.103167
+  Epoch  47: 0.117200
+  Epoch  48: 0.146618
+  Epoch  49: 0.141486
+  Epoch  50: 0.124430
+
+=== Validation ===
+[OK] VanillaDDPM loss drop 88.3% >= 30%
+[OK] LabelConditionedDDPM loss drop 88.0% >= 30%
+[OK] VanillaDDPM samples: finite=True, range=[-3.50, 3.50]
+[OK] LabelConditionedDDPM samples: finite=True, range=[-3.50, 3.50]
+ALL CHECKS PASSED
+
+=== Full Training Log ===
+Device: cuda
+
+=== Loading normalization metadata ===
+y_min: [-773.6566162109375, -884.2754516601562, -616.0032958984375, -283.4148254394531]
+y_max: [783.919921875, 1028.5062255859375, 514.017333984375, 240.1143341064453]
+
+=== Loading frozen TS-JEPA ===
+TS-JEPA loaded: 5,956,096 params, all frozen
+
+=== Encoding training data to z_macro (offline) ===
+  Y_normal_trainingset.pth: shape=(72, 3014, 4), label=0
+    z_macro: shape=(72, 128), min=-2.6933, max=2.3710, finite=True
+  Y_imbalance_fault_20g_trainingset.pth: shape=(72, 3014, 4), label=1
+    z_macro: shape=(72, 128), min=-2.6934, max=2.3711, finite=True
+  Y_vertical_misalignment_fault_1.27mm_trainingset.pth: shape=(68, 3014, 4), label=2
+    z_macro: shape=(68, 128), min=-2.6933, max=2.3710, finite=True
+  Y_overhang_ball_fault_20g_trainingset.pth: shape=(72, 3014, 4), label=3
+    z_macro: shape=(72, 128), min=-2.6933, max=2.3711, finite=True
+
+Total z_macro dataset: torch.Size([284, 128]), labels: torch.Size([284])
+z_macro global: mean=-0.0005, std=1.0151
+z_macro range:  min=-2.6934,  max=2.3711
+
+=== VanillaDDPM Training: 50 epochs, lr=0.001, batch_size=32 ===
+Parameters: 181,568
+[OK] Parameter count matches expected 181,568
+  Epoch   1/50 | loss=1.014865 | elapsed=0.1s
+  Epoch   5/50 | loss=0.749838 | elapsed=0.2s
+  Epoch  10/50 | loss=0.411906 | elapsed=0.3s
+  Epoch  15/50 | loss=0.271636 | elapsed=0.3s
+  Epoch  20/50 | loss=0.191716 | elapsed=0.4s
+  Epoch  25/50 | loss=0.148323 | elapsed=0.5s
+  Epoch  30/50 | loss=0.121673 | elapsed=0.6s
+  Epoch  35/50 | loss=0.154198 | elapsed=0.7s
+  Epoch  40/50 | loss=0.141390 | elapsed=0.8s
+  Epoch  45/50 | loss=0.136722 | elapsed=0.8s
+  Epoch  50/50 | loss=0.119196 | elapsed=0.9s
+
+VanillaDDPM Training complete.
+  Epoch 1:  loss=1.014865
+  Epoch 25: loss=0.148323
+  Epoch 50: loss=0.119196
+  Loss drop: 88.3%
+[OK] Loss drop criterion met: 88.3% >= 30%
+Checkpoint saved: results/baseline_vanilla.pth (714 KB)
+
+=== VanillaDDPM: Sampling 10 unconditional samples ===
+  Generated: shape=(10, 128)
+  Range: [-3.5000, 3.5000]
+  All finite: True
+[OK] VanillaDDPM sampling validated
+
+=== LabelConditionedDDPM Training: 50 epochs, lr=0.001, batch_size=32 ===
+Parameters: 181,824
+[OK] Parameter count matches expected 181,824
+  Epoch   1/50 | loss=1.039852 | elapsed=0.0s
+  Epoch   5/50 | loss=0.837696 | elapsed=0.1s
+  Epoch  10/50 | loss=0.506500 | elapsed=0.2s
+  Epoch  15/50 | loss=0.313195 | elapsed=0.3s
+  Epoch  20/50 | loss=0.246199 | elapsed=0.4s
+  Epoch  25/50 | loss=0.166123 | elapsed=0.5s
+  Epoch  30/50 | loss=0.153365 | elapsed=0.5s
+  Epoch  35/50 | loss=0.154954 | elapsed=0.6s
+  Epoch  40/50 | loss=0.133307 | elapsed=0.7s
+  Epoch  45/50 | loss=0.117781 | elapsed=0.8s
+  Epoch  50/50 | loss=0.124430 | elapsed=0.9s
+
+LabelConditionedDDPM Training complete.
+  Epoch 1:  loss=1.039852
+  Epoch 25: loss=0.166123
+  Epoch 50: loss=0.124430
+  Loss drop: 88.0%
+[OK] Loss drop criterion met: 88.0% >= 30%
+Checkpoint saved: results/baseline_label.pth (716 KB)
+
+=== LabelConditionedDDPM: Sampling 10 per class (40 total) ===
+  Class 0: range=[-3.5000, 3.5000], finite=True
+  Class 1: range=[-3.5000, 3.5000], finite=True
+  Class 2: range=[-3.5000, 3.5000], finite=True
+  Class 3: range=[-3.5000, 3.5000], finite=True
+  Total: shape=(40, 128)
+  Range: [-3.5000, 3.5000]
+  All finite: True
+[OK] LabelConditionedDDPM sampling validated
+
+=== Writing evidence file ===
