@@ -1,0 +1,18 @@
+% TSTR Table — Task 17
+% Copy-paste into paper LaTeX
+\begin{table}[t]
+\centering
+\caption{Transfer classification (TSTR): 4-class accuracy and macro-F1 (mean$\pm$std over 5 seeds).}
+\label{tab:tstr}
+\begin{tabular}{lcc}
+\hline
+Method & Accuracy (\%) & F1-macro (\%) \\
+\hline
+Physics-guided SDEdit (Ours) & $25.0 \pm 0.0$ & $10.0 \pm 0.0$ \\
+Vanilla DDPM & $25.0 \pm 0.0$ & $10.0 \pm 0.0$ \\
+Label-conditioned DDPM & $25.0 \pm 0.0$ & $10.0 \pm 0.0$ \\
+Real-only (Upper Bound) & $\mathbf{80.0 \pm 6.1}$ & $\mathbf{76.0 \pm 9.3}$ \\
+\hline
+\end{tabular}
+\footnotetext{Wilcoxon test (5 seeds): Ours vs Vanilla $p=1.0000$; Ours vs Label-cond. $p=1.0000$.}
+\end{table}

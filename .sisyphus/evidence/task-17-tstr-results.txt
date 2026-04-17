@@ -1,0 +1,47 @@
+Task 17 - TSTR: Transfer Classification Experiment
+===================================================
+NOTE: Test set has only 8 samples total (2 per class). High variance is expected.
+Classifier: Pipeline([StandardScaler(), MLPClassifier(hidden_layer_sizes=(64,), max_iter=500)])
+NOTE: StandardScaler required - z_macro is collapsed (silhouette=-0.12), raw values ~1e-4
+
+Per-seed accuracy (rows=method, cols=seed 0..4):
+
+Method                 Seed0 Seed1 Seed2 Seed3 Seed4   Mean+/-Std Acc     Mean+/-Std F1
+---------------------------------------------------------------------------------------
+Ours (SDEdit)           25.0  25.0  25.0  25.0  25.0    25.0+/- 0.0%     10.0+/- 0.0%
+Vanilla DDPM            25.0  25.0  25.0  25.0  25.0    25.0+/- 0.0%     10.0+/- 0.0%
+Label-Cond.             25.0  25.0  25.0  25.0  25.0    25.0+/- 0.0%     10.0+/- 0.0%
+Real-only               75.0  87.5  75.0  75.0  87.5    80.0+/- 6.1%     76.0+/- 9.3%
+
+Summary (Mean +/- Std over 5 seeds):
+
+  Ours (SDEdit)  : Acc=25.0+/-0.0%  F1=10.0+/-0.0%
+  Vanilla DDPM  : Acc=25.0+/-0.0%  F1=10.0+/-0.0%
+  Label-Cond.   : Acc=25.0+/-0.0%  F1=10.0+/-0.0%
+  Real-only     : Acc=80.0+/-6.1%  F1=76.0+/-9.3%
+
+Statistical Significance (Wilcoxon signed-rank test on 5-seed accuracy):
+
+  ours_vs_vanilla: p=1.0000
+  ours_vs_label_conditioned: p=1.0000
+  ours_vs_real_only: p=0.0625
+
+Training set sizes per method:
+  Ours (SDEdit):   40x3 fault classes + 72 real normal = 192 total
+  Vanilla DDPM:    40x3 generated (round-robin labeled) + 72 real normal = 192 total
+  Label-Cond.:     40x3 generated (class-conditioned) + 72 real normal = 192 total
+  Real-only:       72+72+68+72 = 284 real samples total
+
+Test set: 8 samples (2 per class, fixed at seed=42 encoding)
+
+DIAGNOSTIC NOTE - WHY SYNTHETIC METHODS FAIL:
+  Real z_macro (from TS-JEPA on real signals): std ~1e-6 per dimension (extremely collapsed)
+  Synthetic z_macro (from SDEdit/DDPM sampling): std ~0.35 per dimension (normal range)
+  Distribution incompatibility: classifiers trained on synthetic z_macro (range [-3,3])
+  cannot generalize to real test z_macro (all clustered at same point, diff ~1e-6).
+  StandardScaler fit on synthetic data maps all real test samples to the same scaled point.
+  Consequence: synthetic-trained classifiers predict constant class -> 25% accuracy.
+  Only real-only method achieves meaningful accuracy (80%) because it trains and tests
+  on the same TS-JEPA real distribution, where StandardScaler amplifies the 1e-6 differences.
+  This finding confirms the domain gap between generated and real z_macro distributions.
+  The TSTR result quantifies this gap: Real-only 80% vs Synthetic 25% (random chance).
