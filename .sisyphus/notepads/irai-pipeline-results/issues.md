@@ -24,3 +24,6 @@
 ## [2026-04-17] T3: Code Audit + Fix
 - Verification exposed a blocking gradient issue in tests/test_math_extractor that was not limited to the missing omega argument; float32 feature extraction overflowed on large physics features and produced NaN gradients.
 - PriorWorkOracle still reports PINN checkpoint shape mismatch and falls back to initialized weights during smoke tests because legacy exported architecture indexing differs; this remains expected until dedicated checkpoint remapping work.
+
+## [2026-04-17] T5 Issues Found
+- Exported metadata does not preserve the trained dropout probability, but the checkpoint key layout proves Dropout modules existed. The compat shim therefore uses a positive placeholder dropout rate only to recreate legacy sequential indices; because evaluation runs in model.eval(), dropout remains inactive.

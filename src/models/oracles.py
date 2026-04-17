@@ -1,3 +1,5 @@
+# pyright: reportUnusedImport=false, reportMissingTypeStubs=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportArgumentType=false, reportAny=false, reportPrivateImportUsage=false, reportUnusedCallResult=false, reportUnannotatedClassAttribute=false, reportImplicitOverride=false, reportAssignmentType=false, reportGeneralTypeIssues=false, reportCallIssue=false, reportIndexIssue=false, reportOperatorIssue=false
+
 import torch
 import torch.nn as nn
 import sys
@@ -147,6 +149,28 @@ class PriorWorkOracle(nn.Module):
         # Cast back to original precision (float32) for model compatibility
         return vel_filt.to(orig_dtype), pos.to(orig_dtype)
 
+    def _get_full_x_bounds(self, omega_feed: torch.Tensor, time_grid: torch.Tensor):
+        """Expand stored X bounds to 10 features when metadata only covers cols 0-7."""
+        x_min = self.X_min.to(device=omega_feed.device, dtype=omega_feed.dtype)
+        x_max = self.X_max.to(device=omega_feed.device, dtype=omega_feed.dtype)
+
+        if x_min.numel() == 10 and x_max.numel() == 10:
+            return x_max, x_min
+
+        if x_min.numel() != 8 or x_max.numel() != 8:
+            raise ValueError(
+                f"Unsupported normalization metadata shape for Oracle PINN input: X_min={tuple(x_min.shape)}, X_max={tuple(x_max.shape)}"
+            )
+
+        omega_min = omega_feed.min().view(1)
+        omega_max = omega_feed.max().view(1)
+        time_min = time_grid.min().view(1)
+        time_max = time_grid.max().view(1)
+
+        full_x_min = torch.cat([x_min, omega_min, time_min], dim=0)
+        full_x_max = torch.cat([x_max, omega_max, time_max], dim=0)
+        return full_x_max, full_x_min
+
     def forward(self, x, omega=None):
         """
         Extracts physics-informed features from one full-rotation window of accelerometer data.
@@ -158,7 +182,7 @@ class PriorWorkOracle(nn.Module):
 
         Output: (Batch, embed_dim) — 2240 features.
         """
-        B, C, L = x.shape
+        B, _, L = x.shape
         
         # 0. Restore physical scale via precise Min-Max denormalization
         # Input x is assumed to be normalized exactly как the dataset targets.
@@ -187,10 +211,11 @@ class PriorWorkOracle(nn.Module):
         time_grid = time_steps.unsqueeze(0).expand(B, L).reshape(B * L, 1)
         
         pinn_input = torch.cat([vel_flat, pos_flat, omega_feed, time_grid], dim=-1)
+        X_max_full, X_min_full = self._get_full_x_bounds(omega_feed, time_grid)
         
         # 3. Extract Physics Features
         # The PINN expects inputs as (B*L, 10) in [0, 1] range.
-        pinn_input_norm = (pinn_input - self.X_min) / (self.X_max - self.X_min + 1e-12)
+        pinn_input_norm = (pinn_input - X_min_full) / (X_max_full - X_min_full + 1e-12)
         
         # Ensure double precision for PINN logic
         pinn_input_norm = pinn_input_norm.double()
@@ -203,7 +228,7 @@ class PriorWorkOracle(nn.Module):
         res1, res2, res3, res4, _, _ = self.pinn.compute_residuals(
             pinn_input_norm, 
             pred_acc_norm.double(),
-            X_max=self.X_max, X_min=self.X_min,
+            X_max=X_max_full.double(), X_min=X_min_full.double(),
             y_max=self.y_max, y_min=self.y_min
         )
         residuals = torch.cat([res1, res2, res3, res4], dim=-1).float()

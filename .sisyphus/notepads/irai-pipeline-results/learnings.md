@@ -100,6 +100,12 @@
 - Evidence: .sisyphus/evidence/task-7-baseline-smoke.txt, task-7-fairness-check.txt
 - Commit: feat(baselines): implement Vanilla DDPM and Label-conditioned diffusion baselines
 
+## [2026-04-17] T9: PINN Training from Scratch on 16Hz One-Subtype-Per-Class
+- Added `scripts/train_task9_pinn.py` to load the four mandated 16Hz training tensors, rebuild 10-feature PINN normalization (8 stored bounds + inferred omega/time bounds), train ConfigurablePINN in float64 with ReLoBRaLo, and evaluate residual features via MathFeatureExtractor -> PCA50 -> silhouette/kNN.
+- Scratch Strategy B remained numerically stable through 250 epochs on CUDA with batch_size=8 and lr=1e-4; best validation loss reached 137373.5933 at epoch 219. Fine-tuning Strategy A was skipped because scratch did not diverge within 50 epochs and T5 had already shown the legacy omega mismatch.
+- Residual-feature clustering after fresh training still failed the success threshold: silhouette_pca50=0.0058 and 5-fold kNN accuracy=0.4541. Task-9 decision therefore falls back to: use the physics-informed representation for transfer classification, without claiming clean clustering.
+- Updated `PriorWorkOracle` to accept `results/normalization_metadata.pth` files that store only X cols 0-7 by reconstructing omega/time bounds at runtime before PINN normalization and residual computation.
+
 ## [2026-04-17] T11: Decoder 1 Training
 - Trained Decoder1(d_model=128, seq_length=3014, out_channels=4) on 4 Y files (one per class), frozen TS-JEPA encoder
 - Data: 284 windows (72+72+68+72), normalized with y_min/y_max from normalization_metadata.pth [0,1] range

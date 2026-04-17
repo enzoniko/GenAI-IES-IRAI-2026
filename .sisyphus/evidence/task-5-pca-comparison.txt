@@ -1,0 +1,13 @@
+T5 PCA Comparison — Old PINN Weights on 16Hz MaFaulDa
+
+raw_feature_shape: (1491, 2240)
+pca50_feature_shape: (1491, 50)
+explained_variance_ratio_sum_pca50: 1.000000
+
+silhouette_raw: -0.203745
+silhouette_pca50: -0.203745
+knn5_cv_accuracy_raw: 0.727710
+knn5_cv_accuracy_pca50: 0.800786
+
+recommendation: Use PCA50 for T9/T10: it improves separability without hurting silhouette.
+pca_umap_plot: .sisyphus\evidence\task-5-pinn-old-weights-umap-pca50.png

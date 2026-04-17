@@ -1,0 +1,108 @@
+=== DTYPE AUDIT ===
+
+Scope: src/ dtype transition points from grep + contextual review
+
+- src/data/clean_mafaulda_processor.py:125-155
+  - Module/Boundary: float64 processing core
+  - FROM->TO: NumPy/raw accel -> torch.float64 via torch.from_numpy(...).double(); after filtering/integration returns acc/vel/pos as float32 via .float().detach().numpy()
+  - Assessment: Intentional: comments explicitly require float64 for low-cutoff IIR numerical stability, then downcast for storage/training compatibility.
+
+- src/data/clean_mafaulda_processor.py:195
+  - Module/Boundary: filter coefficients
+  - FROM->TO: SciPy butterworth coeffs numpy -> torch.float64 via torch.from_numpy(...).double()
+  - Assessment: Intentional: keeps IIR coefficients in float64 to match processing path.
+
+- src/data/clean_mafaulda_processor.py:445-455
+  - Module/Boundary: saved processed tensors
+  - FROM->TO: NumPy X_all/Y_all -> torch.tensor(..., dtype=torch.float32) for train/test tensors
+  - Assessment: Intentional: dataset artifacts are persisted in float32.
+
+- src/data/mafaulda_dataset.py:23
+  - Module/Boundary: collate omega
+  - FROM->TO: Python omega scalars -> torch.float32 tensor
+  - Assessment: Intentional: dataloader side-channel omega is standardized to float32.
+
+- src/data/mafaulda_dataset.py:102-120
+  - Module/Boundary: dataset load/normalization
+  - FROM->TO: Loaded processed tensors / metadata likely float32-or-mixed -> y_tensor.transpose(...).float(), omega_vals.float(), y_min/y_max reshaped then .float(), final x_tensor.float()
+  - Assessment: Intentional: enforces float32 tensors for training-facing dataset outputs; note X_min/X_max are used without explicit cast inside per-column normalization, relying on broadcasting from metadata dtype.
+
+- src/data/synthetic_dataset.py:68
+  - Module/Boundary: synthetic sample output
+  - FROM->TO: Generated traces (default torch float) -> explicit float32 via raw_trace_tensor.float() and clean_trace_tensor.float()
+  - Assessment: Intentional: synthetic training data emitted as float32.
+
+- src/models/ts_jepa.py:12
+  - Module/Boundary: positional encoding divisor
+  - FROM->TO: torch.arange default integer -> float32 via .float()
+  - Assessment: Intentional: prepares floating-point sinusoidal encoding constants.
+
+- src/models/pinn.py:165-168
+  - Module/Boundary: PINN global precision
+  - FROM->TO: gravity buffer created as torch.float64; entire module converted to float64 via self.double()
+  - Assessment: Intentional: PINN runs in double precision globally.
+
+- src/models/pinn.py:182-190
+  - Module/Boundary: fixed physical params
+  - FROM->TO: Python scalars -> torch.float64 nn.Parameters
+  - Assessment: Intentional: physical parameters are stored in float64.
+
+- src/models/pinn.py:204-234
+  - Module/Boundary: random-init physical params
+  - FROM->TO: torch.FloatTensor(1) temporary float32 -> .double() to float64 nn.Parameters
+  - Assessment: Intentional but creates explicit float32->float64 boundary during random initialization.
+
+- src/models/pinn.py:243-245
+  - Module/Boundary: forward input cast
+  - FROM->TO: Incoming model input (likely float32 normalized features) -> x.double()
+  - Assessment: Intentional: coerces caller inputs to PINN float64 contract.
+
+- src/models/pinn.py:313-316
+  - Module/Boundary: denorm bounds cast
+  - FROM->TO: Normalization bounds tensors -> .double()
+  - Assessment: Intentional: physics denormalization done in float64.
+
+- src/models/pinn.py:409-410
+  - Module/Boundary: residual computation cast
+  - FROM->TO: Normalized x/pred -> .double()
+  - Assessment: Intentional: residual equations use float64.
+
+- src/models/oracles.py:83
+  - Module/Boundary: oracle filter coefficients
+  - FROM->TO: SciPy coeff numpy arrays -> device tensors -> .double()
+  - Assessment: Intentional: matches differentiable IIR float64 path.
+
+- src/models/oracles.py:124-148
+  - Module/Boundary: differentiable integration
+  - FROM->TO: Input acceleration orig_dtype (typically float32) -> acc.double() for filtering/integration -> vel/pos cast back to orig_dtype with .to(orig_dtype)
+  - Assessment: Intentional: numerically stable internal float64 with float32 interface restored.
+
+- src/models/oracles.py:193-209
+  - Module/Boundary: oracle?PINN boundary
+  - FROM->TO: pinn_input_norm promoted to float64 via .double() before PINN; PINN outputs/unmeasured/residuals then downcast to float32 via .float(); residual compute re-promotes pred_acc_norm.double()
+  - Assessment: Intentional but high-friction boundary: float32->float64->float32->float64 within one forward pass.
+
+- src/models/relobralo_loss.py:155-156
+  - Module/Boundary: loss entry cast
+  - FROM->TO: Training batch x and y_true -> .double()
+  - Assessment: Intentional: loss and physics residuals aligned with float64 PINN math.
+
+- src/models/relobralo_loss.py:194-195
+  - Module/Boundary: mass-loss fallback tensors
+  - FROM->TO: Literal zeros allocated directly as torch.float64
+  - Assessment: Intentional: keeps fallback compatible with double-precision loss stack.
+
+- src/models/relobralo_loss.py:206-212
+  - Module/Boundary: error fallback tensors
+  - FROM->TO: Literal ones allocated directly as torch.float64
+  - Assessment: Intentional: fallback values preserve double-precision API.
+
+- src/pipelines/run_sdedit_phase2.py:42,67,114
+  - Module/Boundary: latent diffusion pipeline casts
+  - FROM->TO: scheduler.add_noise(...) / z_start -> .float()
+  - Assessment: Intentional: LDM/latent path operates in float32, separate from PINN/oracle double-precision physics path.
+
+Summary observations:
+- Primary dtype seam is dataset/JEPA/LDM float32 versus PINN/oracle physics float64.
+- Oracle forward contains repeated casts around the PINN call; this is intentional but creates extra conversion churn.
+- Processed data pipeline stores float32 artifacts even though preprocessing math is float64.

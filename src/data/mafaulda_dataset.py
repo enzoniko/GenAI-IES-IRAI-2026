@@ -58,22 +58,17 @@ class MaFaulDaDataset(Dataset):
         labels_list = []
         omegas_list = []
         
-        # MaFaulDa folder structure mapping to integer labels
+        # MaFaulDa folder structure mapping to the reduced 4-class scheme.
+        # Non-target conditions are intentionally excluded.
         label_mapping = {
             'normal': 0,
-            # Overhang
-            'overhang_ball_fault_0g': 1, 'overhang_ball_fault_6g': 2, 'overhang_ball_fault_20g': 3, 'overhang_ball_fault_35g': 4,
-            'overhang_cage_fault_0g': 5, 'overhang_cage_fault_6g': 6, 'overhang_cage_fault_20g': 7, 'overhang_cage_fault_35g': 8,
-            'overhang_outer_race_fault_0g': 9, 'overhang_outer_race_fault_6g': 10, 'overhang_outer_race_fault_20g': 11, 'overhang_outer_race_fault_35g': 12,
-            # Underhang
-            'underhang_ball_fault_0g': 13, 'underhang_ball_fault_6g': 14, 'underhang_ball_fault_20g': 15, 'underhang_ball_fault_35g': 16,
-            'underhang_cage_fault_0g': 17, 'underhang_cage_fault_6g': 18, 'underhang_cage_fault_20g': 19, 'underhang_cage_fault_35g': 20,
-            'underhang_outer_race_fault_0g': 21, 'underhang_outer_race_fault_6g': 22, 'underhang_outer_race_fault_20g': 23, 'underhang_outer_race_fault_35g': 24,
-            # Misalignment
-            'horizontal_misalignment_fault_0.5mm': 25, 'horizontal_misalignment_fault_1.0mm': 26, 'horizontal_misalignment_fault_1.5mm': 27, 'horizontal_misalignment_fault_2.0mm': 28,
-            'vertical_misalignment_fault_0.51mm': 29, 'vertical_misalignment_fault_0.63mm': 30, 'vertical_misalignment_fault_1.27mm': 31, 'vertical_misalignment_fault_1.40mm': 32, 'vertical_misalignment_fault_1.78mm': 33, 'vertical_misalignment_fault_1.90mm': 34,
-            # Imbalance
-            'imbalance_fault_6g': 35, 'imbalance_fault_10g': 36, 'imbalance_fault_15g': 37, 'imbalance_fault_20g': 38, 'imbalance_fault_25g': 39, 'imbalance_fault_30g': 40, 'imbalance_fault_35g': 41
+            'imbalance_fault_6g': 1, 'imbalance_fault_10g': 1, 'imbalance_fault_15g': 1, 'imbalance_fault_20g': 1,
+            'imbalance_fault_25g': 1, 'imbalance_fault_30g': 1, 'imbalance_fault_35g': 1,
+            'vertical_misalignment_fault_0.51mm': 2, 'vertical_misalignment_fault_0.63mm': 2, 'vertical_misalignment_fault_1.27mm': 2,
+            'vertical_misalignment_fault_1.40mm': 2, 'vertical_misalignment_fault_1.78mm': 2, 'vertical_misalignment_fault_1.90mm': 2,
+            'overhang_ball_fault_0g': 3, 'overhang_ball_fault_6g': 3, 'overhang_ball_fault_20g': 3, 'overhang_ball_fault_35g': 3,
+            'overhang_cage_fault_0g': 3, 'overhang_cage_fault_6g': 3, 'overhang_cage_fault_20g': 3, 'overhang_cage_fault_35g': 3,
+            'overhang_outer_race_fault_0g': 3, 'overhang_outer_race_fault_6g': 3, 'overhang_outer_race_fault_20g': 3, 'overhang_outer_race_fault_35g': 3
         }
         
         print(f"Loading pre-processed datasets from {root_dir}...")

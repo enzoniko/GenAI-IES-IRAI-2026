@@ -1,0 +1,141 @@
+﻿=== ARCHITECTURE MATCH CHECK ===
+
+Loaded model_config.json with encoding=utf-16
+model_config.json: {
+  "method": "relobralo",
+  "trial": "trial_009",
+  "architecture": {
+    "version": "dimensional_v8",
+    "hidden_layers": [
+      128,
+      128
+    ],
+    "activation": "elu"
+  },
+  "hyperparameters": {
+    "alpha": 0.5125,
+    "rho": 0.2332,
+    "temp": 1.4198
+  }
+}
+
+--- architecture.py (first 80 lines as text) ---
+    1: import torch 
+    2: import torch.nn as nn
+    3: import torch.optim as optim
+    4: import numpy as np
+    5: import os
+    6: import sys
+    7: import matplotlib.pyplot as plt
+    8: from torch.utils.data import DataLoader, TensorDataset
+    9: 
+   10: # Fix import path
+   11: sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+   12: from direct_analysis.data_utils import prepare_data, normalize_data
+   13: 
+   14: class ConfigurableMLP(nn.Module):
+   15:     """
+   16:     A configurable multi-layer perceptron neural network.
+   17:     
+   18:     Parameters:
+   19:     - input_dim: Input dimension
+   20:     - hidden_layers: List of integers defining the width of each hidden layer
+   21:     - output_dim: Output dimension
+   22:     - activation: Activation function (default: 'tanh')
+   23:     - dropout_rate: Dropout rate for regularization (default: 0.0)
+   24:     - init_method: Weight initialization method (default: 'xavier_normal')
+   25:     """
+   26:     def __init__(self, input_dim, hidden_layers, output_dim,
+   27:                  activation='tanh', dropout_rate=0.0, init_method='xavier_normal'):
+   28:         super(ConfigurableMLP, self).__init__()
+   29: 
+   30:         self.input_dim = input_dim
+   31:         self.output_dim = output_dim
+   32:         self.hidden_layers = hidden_layers
+   33:         self.activation = activation
+   34:         self.dropout_rate = dropout_rate
+   35:         self.init_method = init_method
+   36:         
+   37:         layers = []
+   38:         
+   39:         # Input layer
+   40:         current_dim = input_dim
+   41:         
+   42:         # Hidden layers
+   43:         for h_dim in hidden_layers:
+   44:             layers.append(nn.Linear(current_dim, h_dim))
+   45:             
+   46:             # Activation function
+   47:             if activation.lower() == 'tanh':
+   48:                 layers.append(nn.Tanh())
+   49:             elif activation.lower() == 'relu':
+   50:                 layers.append(nn.ReLU())
+   51:             elif activation.lower() == 'leaky_relu':
+   52:                 layers.append(nn.LeakyReLU(0.1))
+   53:             elif activation.lower() == 'elu':
+   54:                 layers.append(nn.ELU())
+   55:             elif activation.lower() == 'selu':
+   56:                 layers.append(nn.SELU())
+   57:             elif activation.lower() == 'gelu':
+   58:                 layers.append(nn.GELU())
+   59:             else:
+   60:                 raise ValueError(f"Unsupported activation function: {activation}")
+   61:             
+   62:             # Add dropout if specified
+   63:             if dropout_rate > 0:
+   64:                 layers.append(nn.Dropout(dropout_rate))
+   65:             
+   66:             current_dim = h_dim
+   67:         
+   68:         # Output layer
+   69:         layers.append(nn.Linear(current_dim, output_dim))
+   70:         
+   71:         self.model = nn.Sequential(*layers)
+   72:         
+   73:         # Initialize weights
+   74:         self._initialize_weights(init_method)
+   75:         
+   76:     def _initialize_weights(self, method):
+   77:         """Initialize the weights using the specified method."""
+   78:         for m in self.modules():
+   79:             if isinstance(m, nn.Linear):
+   80:                 if method == 'xavier_normal':
+  ... (truncated)
+
+--- State Dict Keys ---
+Number of parameters: 22
+  M1: () torch.float64
+  M2: () torch.float64
+  M3: () torch.float64
+  D1: () torch.float64
+  D2: () torch.float64
+  D3: () torch.float64
+  K1: () torch.float64
+  K2: () torch.float64
+  E1: () torch.float64
+  g: () torch.float64
+  NNforUnmeasured.model.0.weight: (128, 15) torch.float64
+  NNforUnmeasured.model.0.bias: (128,) torch.float64
+  NNforUnmeasured.model.3.weight: (128, 128) torch.float64
+  NNforUnmeasured.model.3.bias: (128,) torch.float64
+  NNforUnmeasured.model.6.weight: (4, 128) torch.float64
+  NNforUnmeasured.model.6.bias: (4,) torch.float64
+  NNforAccelerations.model.0.weight: (128, 10) torch.float64
+  NNforAccelerations.model.0.bias: (128,) torch.float64
+  NNforAccelerations.model.3.weight: (128, 128) torch.float64
+  NNforAccelerations.model.3.bias: (128,) torch.float64
+  NNforAccelerations.model.6.weight: (4, 128) torch.float64
+  NNforAccelerations.model.6.bias: (4,) torch.float64
+
+--- Key Comparison ---
+Old model keys: 22
+New model keys: 22
+Keys in OLD but NOT in NEW: ['NNforAccelerations.model.3.bias', 'NNforAccelerations.model.3.weight', 'NNforAccelerations.model.6.bias', 'NNforAccelerations.model.6.weight', 'NNforUnmeasured.model.3.bias', 'NNforUnmeasured.model.3.weight', 'NNforUnmeasured.model.6.bias', 'NNforUnmeasured.model.6.weight']
+Keys in NEW but NOT in OLD: ['NNforAccelerations.model.2.bias', 'NNforAccelerations.model.2.weight', 'NNforAccelerations.model.4.bias', 'NNforAccelerations.model.4.weight', 'NNforUnmeasured.model.2.bias', 'NNforUnmeasured.model.2.weight', 'NNforUnmeasured.model.4.bias', 'NNforUnmeasured.model.4.weight']
+No shared-key shape mismatches detected.
+
+--- Weight Loading Attempt ---
+RESULT: FAIL with strict=True - Error(s) in loading state_dict for ConfigurablePINN:
+	Missing key(s) in state_dict: "NNforUnmeasured.model.2.weight", "NNforUnmeasured.model.2.bias", "NNforUnmeasured.model.4.weight", "NNforUnmeasured.model.4.bias", "NNforAccelerations.model.2.weight", "NNforAccelerations.model.2.bias", "NNforAccelerations.model.4.weight", "NNforAccelerations.model.4.bias". 
+	Unexpected key(s) in state_dict: "NNforUnmeasured.model.6.weight", "NNforUnmeasured.model.6.bias", "NNforUnmeasured.model.3.weight", "NNforUnmeasured.model.3.bias", "NNforAccelerations.model.6.weight", "NNforAccelerations.model.6.bias", "NNforAccelerations.model.3.weight", "NNforAccelerations.model.3.bias". 
+RESULT: PARTIAL SUCCESS - strict=False load works (some keys missing/unexpected)

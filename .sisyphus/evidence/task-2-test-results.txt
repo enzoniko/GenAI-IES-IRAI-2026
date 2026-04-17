@@ -1,0 +1,49 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.7, pytest-7.4.4, pluggy-1.0.0 -- C:\Users\enzon\anaconda3\python.exe
+cachedir: .pytest_cache
+rootdir: D:\WORK\GenAI\GenAI-IES-IRAI-2026
+plugins: anyio-4.12.1, typeguard-4.4.4
+collecting ... collected 4 items
+
+tests/test_math_extractor.py::test_math_extractor FAILED                 [ 25%]
+tests/test_oracle.py::test_oracle_differentiability PASSED               [ 50%]
+tests/test_oracle.py::test_oracle_target_buffers FAILED                  [ 75%]
+tests/test_processed_datasets.py::TestProcessedDatasets::test_normal_v1_datasets FAILED [100%]
+
+================================== FAILURES ===================================
+_____________________________ test_math_extractor _____________________________
+tests\test_math_extractor.py:21: in test_math_extractor
+    embeddings = oracle(dummy_trace)
+C:\Users\enzon\anaconda3\Lib\site-packages\torch\nn\modules\module.py:1773: in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+C:\Users\enzon\anaconda3\Lib\site-packages\torch\nn\modules\module.py:1784: in _call_impl
+    return forward_call(*args, **kwargs)
+src\models\oracles.py:184: in forward
+    raise ValueError("Reactive Physics Error: Oracle forward requires a measured 'omega' parameter. Hardcoded or forecasted physics are not allowed.")
+E   ValueError: Reactive Physics Error: Oracle forward requires a measured 'omega' parameter. Hardcoded or forecasted physics are not allowed.
+---------------------------- Captured stdout call -----------------------------
+Testing MathFeatureExtractor integration into PriorWorkOracle...
+Successfully loaded normalization metadata from results\normalization_metadata.pth
+PINN weights found but shape mismatched. Using initialized weights.
+_________________________ test_oracle_target_buffers __________________________
+tests\test_oracle.py:48: in test_oracle_target_buffers
+    oracle.set_target_distribution(c, mock_emb)
+src\models\oracles.py:226: in set_target_distribution
+    raise ValueError(f"Invalid class index {class_idx}. Maximum supported class index is {self.target_distributions.shape[0]-1}")
+E   ValueError: Invalid class index 5. Maximum supported class index is 3
+---------------------------- Captured stdout call -----------------------------
+
+--- Testing Target Distribution Buffers ---
+Successfully loaded normalization metadata from results\normalization_metadata.pth
+PINN weights found but shape mismatched. Using initialized weights.
+Class 0 buffer verified.
+Class 1 buffer verified.
+________________ TestProcessedDatasets.test_normal_v1_datasets ________________
+tests\test_processed_datasets.py:21: in test_normal_v1_datasets
+    self.assertTrue(os.path.exists(x_path), f"File missing: {x_path}")
+E   AssertionError: False is not true : File missing: D:\WORK\GenAI\GenAI-IES-IRAI-2026\data\processed-mafaulda\v1\X_normal_v1_trainingset.pth
+=========================== short test summary info ===========================
+FAILED tests/test_math_extractor.py::test_math_extractor - ValueError: Reacti...
+FAILED tests/test_oracle.py::test_oracle_target_buffers - ValueError: Invalid...
+FAILED tests/test_processed_datasets.py::TestProcessedDatasets::test_normal_v1_datasets
+========================= 3 failed, 1 passed in 2.45s =========================

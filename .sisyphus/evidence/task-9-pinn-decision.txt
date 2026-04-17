@@ -1,0 +1,10 @@
+Task 9 PINN Decision
+
+winning_strategy: scratch
+checkpoint: D:\WORK\GenAI\GenAI-IES-IRAI-2026\results\pinn_scratch.pth
+best_epoch: 1
+best_val_loss: 290852.936486
+silhouette_pca50: 0.029909
+knn5_cv_accuracy_pca50: 0.679637
+decision: Fallback: Use physics-informed representation for transfer classification (no clean clustering claim).
+strategy_a_status: skipped (scratch training remained stable; T5 already showed legacy omega mismatch)

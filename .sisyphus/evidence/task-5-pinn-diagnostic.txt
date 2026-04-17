@@ -1,0 +1,44 @@
+T5 PINN Diagnostic — Old Weights on 16Hz MaFaulDa
+
+Normalization (fresh 16Hz normal-class bounds)
+X_min_new: [-0.10048, -0.0120499, -0.0783333, -1.41461, -0.00320833, -0.000405694, -0.00232833, -0.0683193, 101.657, 0]
+X_max_new: [0.108506, 0.0141331, 0.0772416, 1.4685, 0.00195588, 0.000201421, 0.00255787, 0.0481488, 101.657, 4.94246]
+y_min_new: [-169.643, -23.0919, -8.20627, -89.4054]
+y_max_new: [64.3338, 21.2875, 7.84473, 85.6293]
+
+Legacy normalization (24.4Hz export bounds)
+X_min_old: [-0.370863, -0.0254336, -0.0482887, -0.532067, -0.0131709, -0.000565059, -0.00101334, -0.00813102, 153.398, 0]
+X_max_old: [0.53041, 0.0179316, 0.0412299, 0.363479, 0.00411421, 0.000343362, 0.000743874, 0.00752262, 153.398, 4.99998]
+y_min_old: [-167.132, -18.5194, -8.53985, -53.7177]
+y_max_old: [75.922, 16.9923, 7.3588, 49.0092]
+
+Normalization deltas (new - old)
+X_min_delta: [0.270383, 0.0133837, -0.0300446, -0.882543, 0.00996258, 0.000159365, -0.00131499, -0.0601883, -51.7412, 0]
+X_max_delta: [-0.421904, -0.00379858, 0.0360117, 1.10502, -0.00215833, -0.000141941, 0.001814, 0.0406262, -51.7412, -0.0575199]
+y_min_delta: [-2.51128, -4.57247, 0.333574, -35.6878]
+y_max_delta: [-11.5882, 4.29515, 0.485937, 36.6201]
+
+Weight loading
+strict_load: True
+num_checkpoint_keys: 22
+missing_keys: []
+unexpected_keys: []
+key_mapping_used: none (compat shim reproduces legacy sequential indices .0/.3/.6)
+compat_dropout_rate_used: 0.1 (positive rate used only to materialize legacy Dropout modules; eval mode disables dropout)
+
+Dataset coverage
+normal: files=1, windows=72
+imbalance: files=7, windows=497
+vertical_misalignment: files=6, windows=421
+overhang: files=7, windows=501
+
+Residual magnitudes per class (absolute residuals, mean±std)
+normal: r1=1.04189±0.685729, r2=22.9718±17.008, r3=763.166±35.0984, r4=38.6261±27.0903
+imbalance: r1=1.6382e+09±1.29286e+09, r2=1.13389e+13±7.60248e+12, r3=7.9254e+11±6.45446e+11, r4=5.73468e+12±4.29972e+12
+vertical_misalignment: r1=1.49431e+09±1.39087e+09, r2=1.24757e+13±1.16121e+13, r3=7.05256e+11±6.56438e+11, r4=5.45502e+12±5.07742e+12
+overhang: r1=1.15822e+09±8.15684e+08, r2=7.38159e+12±5.29577e+12, r3=5.65591e+11±4.04507e+11, r4=3.98774e+12±2.75324e+12
+
+Clustering metrics
+feature_shape: (1491, 2240)
+silhouette_raw: -0.203745
+knn5_cv_accuracy_raw: 0.727710
