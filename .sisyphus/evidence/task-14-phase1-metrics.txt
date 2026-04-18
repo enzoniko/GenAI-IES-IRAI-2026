@@ -1,0 +1,11 @@
+Task 14 - Phase 1 Validation Metrics
+=====================================
+Class 0 (Normal):             envelope_RMSE=0.0249, full_RMSE=0.0259, improvement=-3.9%
+Class 1 (Imbalance_20g):      envelope_RMSE=0.0631, full_RMSE=0.0635, improvement=-0.5%
+Class 2 (Vert_1.27mm):        envelope_RMSE=0.0546, full_RMSE=0.0550, improvement=-0.8%
+Class 3 (Overhang_20g):       envelope_RMSE=0.1218, full_RMSE=0.1219, improvement=-0.1%
+
+val_ELBO (T13): 0.0066
+Silhouette_pca50 (T10): 0.0789
+
+Twin plot: assets/fig_phase1_validation.pdf

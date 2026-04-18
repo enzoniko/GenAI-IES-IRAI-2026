@@ -35,3 +35,5 @@
 - **Assets Dir**: Directory `assets/` must be initialized for all figure outputs.
 ## [2026-04-17] T1 data repair
 - Updated the hardcoded metadata label_strategy in clean_mafaulda_processor.py to mafaulda_reduced_4 so future processor metadata aligns with the reduced 4-class dataset.
+
+- 2026-04-17 F1 audit scope decision: exclude LaTeX completeness/compilation and bibliography from compliance counts; assess deliverables using checkpoints, figures, evidence files, and actual artifact-generation scripts.

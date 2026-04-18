@@ -59,10 +59,64 @@
       "task_key": "todo:8",
       "task_label": "8",
       "task_title": "Synthetic System Re-run + Fairness/Difficulty Validation",
-      "session_id": "ses_262e2a580ffeNMdEoiLp6j6MGQ",
+      "session_id": "ses_262850d5bffe5z6nY5zx8jG52F",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-17T22:07:23.249Z"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "PINN Variant Comparison + UMAP Generation + Best Model Selection",
+      "session_id": "ses_262824697ffeN97YfyXrJO3JM2",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-04-17T20:40:57.937Z"
+      "updated_at": "2026-04-17T22:13:43.210Z"
+    },
+    "todo:13": {
+      "task_key": "todo:13",
+      "task_label": "13",
+      "task_title": "Decoder 2 (CVAE Jitter) Training",
+      "session_id": "ses_2627d2046ffeGy1VCUH20rVoZa",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-17T22:21:47.170Z"
+    },
+    "todo:14": {
+      "task_key": "todo:14",
+      "task_label": "14",
+      "task_title": "Phase 1 Complete Validation + Twin Plots",
+      "session_id": "ses_2627174baffeC7lQG3ews6UqrB",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-17T22:30:39.488Z"
+    },
+    "todo:16": {
+      "task_key": "todo:16",
+      "task_label": "16",
+      "task_title": "Physics-Guided SDEdit Counterfactual Generation",
+      "session_id": "ses_26254ea14ffeZqM8kM0psdxwFp",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-17T23:08:03.788Z"
+    },
+    "todo:18": {
+      "task_key": "todo:18",
+      "task_label": "18",
+      "task_title": "Generate Paper Figures + Tables + Update LaTeX",
+      "session_id": "ses_26248df14ffeq8wYNevijenrug",
+      "agent": "Sisyphus-Junior",
+      "category": "writing",
+      "updated_at": "2026-04-17T23:14:14.499Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_26233bed0ffeHo1envX8lL9sM6",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-17T23:38:00.364Z"
     }
   }
 }

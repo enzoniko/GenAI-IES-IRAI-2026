@@ -855,7 +855,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ---
 
-- [ ] 8. Synthetic System Re-run + Fairness/Difficulty Validation
+- [x] 8. Synthetic System Re-run + Fairness/Difficulty Validation
 
   **What to do**:
   - **CRITICAL — Paper-code alignment**: The paper (Section IV-A, Eq. 4) describes a 1D damped harmonic oscillator: `m*x'' + c*x' + k*x = A*sin(ω₀*t)` with nominal params `m=1, c=0.5, k=4.0, A=1.0, ω₀=1.0`. Three fault classes: stiffness reduction (k→0.5k), damping increase (c→2c), forcing perturbation (A→2A). Observable = acceleration x''(t). The existing `src/data/synthetic_dataset.py` implements a DIFFERENT system (4-channel vibration, imbalance/outer-race faults). You MUST create a NEW synthetic generator `src/data/paper_synthetic_oscillator.py` that matches the paper's description exactly:
@@ -981,7 +981,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ### Wave 3 — PINN Fix + Decoder 1 + LDM (Parallel)
 
-- [ ] 9. PINN Training — Fix, Fine-Tune, From-Scratch (TIME-BOXED: 2 days)
+- [x] 9. PINN Training — Fix, Fine-Tune, From-Scratch (TIME-BOXED: 2 days)
 
   **What to do**:
   - Based on T5 diagnostic results and T3 code fixes, execute up to 3 PINN training strategies:
@@ -1072,7 +1072,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ---
 
-- [ ] 10. PINN Variant Comparison + UMAP Generation + Best Model Selection
+- [x] 10. PINN Variant Comparison + UMAP Generation + Best Model Selection
 
   **What to do**:
   - Load ALL PINN variants from T9 (fine-tuned, from-scratch) + T5 (old weights as-is)
@@ -1167,7 +1167,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ---
 
-- [ ] 11. Decoder 1 (Deterministic Envelope) Training
+- [x] 11. Decoder 1 (Deterministic Envelope) Training
 
   **What to do**:
   - Freeze TS-JEPA encoder from T6 (load `results/ts_jepa.pth`, set `requires_grad=False`)
@@ -1241,7 +1241,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ---
 
-- [ ] 12. LDM Training on z_macro Space
+- [x] 12. LDM Training on z_macro Space
 
   **What to do**:
   - Freeze TS-JEPA encoder from T6 (load `results/ts_jepa.pth`, set `requires_grad=False`)
@@ -1317,7 +1317,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ### Wave 4 — Decoder 2 + Validation + Baselines
 
-- [ ] 13. Decoder 2 (CVAE Jitter) Training
+- [x] 13. Decoder 2 (CVAE Jitter) Training
 
   **What to do**:
   - Freeze both TS-JEPA (T6) and Decoder 1 (T11)
@@ -1402,7 +1402,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ---
 
-- [ ] 14. Phase 1 Complete Validation + Twin Plots
+- [x] 14. Phase 1 Complete Validation + Twin Plots
 
   **What to do**:
   - **Full Phase 1 pipeline validation**: Load all trained Phase 1 components (TS-JEPA, Decoder 1, Decoder 2). Run the complete encoding-decoding pipeline: signal → TS-JEPA → z_macro → Decoder 1 → envelope → Decoder 2 → jitter → full reconstruction
@@ -1491,7 +1491,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ---
 
-- [ ] 15. Run Baseline Experiments
+- [x] 15. Run Baseline Experiments
 
   **What to do**:
   - Load baseline implementations from T7 (Vanilla DDPM + Label-conditioned DDPM)
@@ -1585,7 +1585,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ### Wave 5 — Generation + Evaluation + Paper
 
-- [ ] 16. Physics-Guided SDEdit Counterfactual Generation
+- [x] 16. Physics-Guided SDEdit Counterfactual Generation
 
   **What to do**:
   - This is the CORE CONTRIBUTION of the paper — generating counterfactual fault signals guided by PINN physics
@@ -1697,7 +1697,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ---
 
-- [ ] 17. Transfer Classification Experiment (TSTR)
+- [x] 17. Transfer Classification Experiment (TSTR)
 
   **What to do**:
   - **THE KEY QUANTITATIVE RESULT for the paper**: Train-Synthetic-Test-Real (TSTR) classification
@@ -1795,7 +1795,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ---
 
-- [ ] 18. Generate Paper Figures + Tables + Update LaTeX
+- [x] 18. Generate Paper Figures + Tables + Update LaTeX
 
   **What to do**:
   - **Collect all evidence files** from T4 (spec), T8 (synthetic), T10 (PINN UMAP), T14 (Phase 1 validation), T15 (baselines), T16 (SDEdit), T17 (TSTR)
@@ -1932,7 +1932,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists (run commands, check outputs). For each "Must NOT Have": search codebase for forbidden patterns — reject with file:line if found. Check evidence files exist in `.sisyphus/evidence/`. Compare deliverables against plan.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
@@ -1955,7 +1955,7 @@ Max Concurrent: 4 (Waves 1 & 2)
     Evidence: .sisyphus/evidence/F1-compliance-audit.txt
   ```
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `pytest tests/` + check all training scripts complete. Review changed files for: `as any`/`@ts-ignore` (N/A for Python), empty excepts, print statements in production paths, commented-out code, unused imports. Check for dtype consistency (float64/float32 boundaries logged). Verify all checkpoints save correctly.
   Output: `Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
@@ -1974,7 +1974,7 @@ Max Concurrent: 4 (Waves 1 & 2)
     Evidence: .sisyphus/evidence/F2-code-quality.txt
   ```
 
-- [ ] F3. **Full Pipeline QA** — `unspecified-high`
+- [x] F3. **Full Pipeline QA** — `unspecified-high`
   Start from clean state. Run full pipeline: `main_phase0.py` → `main_phase1.py` → `main_phase2.py`. Verify each produces expected outputs. Check UMAP plots visually (clusters visible?). Check generated signals visually (plausible?). Check transfer classification numbers (above chance?). Save evidence to `.sisyphus/evidence/final-qa/`.
   Output: `Scenarios [N/N pass] | Integration [N/N] | VERDICT`
 
@@ -2006,7 +2006,7 @@ Max Concurrent: 4 (Waves 1 & 2)
     Evidence: .sisyphus/evidence/final-qa/F3-integration.txt
   ```
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", verify actual changes match spec. Check 16Hz only used (no other speeds). Check exactly 3 fault classes + healthy. Check no architecture experimentation. Check no cosmetic refactoring. Check reproducibility artifacts (seeds, configs, git hash logged). Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Guardrails [N/N respected] | VERDICT`
 

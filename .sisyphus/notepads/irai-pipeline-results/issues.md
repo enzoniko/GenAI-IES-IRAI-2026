@@ -27,3 +27,5 @@
 
 ## [2026-04-17] T5 Issues Found
 - Exported metadata does not preserve the trained dropout probability, but the checkpoint key layout proves Dropout modules existed. The compat shim therefore uses a positive placeholder dropout rate only to recreate legacy sequential indices; because evaluation runs in model.eval(), dropout remains inactive.
+
+- 2026-04-17 F1 compliance audit: REJECT. Guardrail breach remains in reduced 4-class scope: src/data/mafaulda_dataset.py:63-72 includes extra subtypes, and src/pipelines/train_phase1.py:189-190 still references legacy 42-class labels.

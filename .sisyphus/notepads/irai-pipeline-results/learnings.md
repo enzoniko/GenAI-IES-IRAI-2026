@@ -255,3 +255,27 @@
 - Generated signal stats: normalized outputs stayed within [-0.0890, 0.6550] with stable decoded envelopes+jitter
 - Counterfactuals saved: results\sdedit_counterfactuals.pth
 - Oracle penalty summaries: cls1 12946091.0000->13109561.0000, cls2 10946888.0000->11587906.0000, cls3 14285781.0000->5539209.5000
+
+## [2026-04-17] T17: TSTR Transfer Classification Experiment
+- Classifier: StandardScaler + MLPClassifier(hidden_layer_sizes=(64,), max_iter=500)
+- Without StandardScaler: MLP/LR predict constant class -> 25% for ALL methods
+- With StandardScaler: only real-only method benefits; synthetic still 25%
+- Real-only: 80.0+/-6.1% acc, 76.0+/-9.3% F1 (upper bound confirmed)
+- All synthetic (SDEdit, VanillaDDPM, LabelCond): 25.0+/-0.0% (random chance)
+- ROOT CAUSE: z_macro distribution mismatch
+  - Real z_macro (TS-JEPA encoded): std ~1e-6 per dimension (collapsed)
+  - Synthetic z_macro (DDPM/SDEdit sampled): std ~0.35 per dimension
+  - Scaler fit on synthetic maps real test data to constant point -> one-class prediction
+- DDIM sampling worked correctly (no divergence, x0-prediction, clamp 3.5, stride=5)
+- VanillaDDPM.sample() and LabelConditionedDDPM.sample() use naive 1000-step; must use custom DDIM
+- Wilcoxon p(ours vs real-only)=0.0625, p(ours vs vanilla)=1.0, p(ours vs label-cond)=1.0
+- Evidence: .sisyphus/evidence/task-17-{tstr-results.txt,results-table.tex,confusion-matrices.png}
+
+- 2026-04-17 F1 compliance audit: all requested deliverables verified present/loadable (18/18), evidence census passed with 45 files and tasks T1-T18 present; only failing compliance point was the unresolved reduced-4-class guardrail in dataset/evaluation code.
+
+- 2026-04-17 F1 revised audit: approved under clarified scope (codebase/results/evidence only). One-subtype-per-class enforcement is confirmed in the task-specific scripts, not the flexible general mapper.
+## [2026-04-18] 24.4 Hz PINN Experiment
+- Finetune: Silhouette_pca50=0.027027, kNN_pca50=0.640590
+- Scratch: Silhouette_pca50=0.029812, kNN_pca50=0.665071
+- 16Hz baseline: Silhouette_pca50=0.0789, kNN_pca50=0.7783
+- Winner: scratch, conclusion: native-speed fine-tuning did not beat the 16Hz baseline; both 24.4 Hz runs underperformed it.

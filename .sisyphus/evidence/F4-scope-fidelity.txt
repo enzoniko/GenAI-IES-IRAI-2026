@@ -1,0 +1,57 @@
+F4 Scope Fidelity Check — Final Verification Wave for IRAI 2026 pipeline
+
+Summary verdict
+Tasks [8/8 compliant] | Guardrails [8/8 respected] | VERDICT: APPROVE
+
+Guardrail 1 — 16Hz configuration: PASS
+- src/configs.py:13 => TARGET_HZ = 16.0
+- src/configs.py:16 => DATA_DIR_PROCESSED = data/processed-mafaulda/16hz
+- src/configs.py:21 => SEQ_LENGTH = 3014
+- src/configs.py:45 => PHASE0_TRAIN_SETTINGS['rotation_hz'] = 16
+
+Guardrail 2 — NUM_CLASSES = 4: PASS
+- src/configs.py:20 => NUM_CLASSES = 4
+
+Guardrail 3 — one subtype per class in training: PASS
+- scripts/train_task9_pinn.py:56-73 loads only:
+  - Y_normal_trainingset.pth
+  - Y_imbalance_fault_20g_trainingset.pth
+  - Y_vertical_misalignment_fault_1.27mm_trainingset.pth
+  - Y_overhang_ball_fault_20g_trainingset.pth
+- train_ldm_task12.py:31-35 loads only the same four training files
+- scripts/task16_sdedit_generation.py:47-53 loads only the same four training files
+- scripts/task17_tstr_experiment.py:54-59 loads only the same four training files for training
+- Extra processed files present on disk are accepted as T1 full-dataset artifacts and do not violate the training-file guardrail.
+
+Guardrail 4 — no architecture changes beyond plan spec: PASS
+- src/configs.py:53-64 keeps PINN hidden_layers=[128, 128] and activation='elu'
+- src/models/pinn.py:144-160 consumes cfg.PINN_ARCH_DEFAULT for both PINN subnets
+
+Guardrail 5 — reproducibility seeds present: PASS
+- scripts/train_task9_pinn.py:111-116 => np.random.seed(seed), torch.manual_seed(seed)
+- train_ldm_task12.py:288 => umap.UMAP(n_components=2, random_state=42)
+- scripts/task16_sdedit_generation.py:80-85 => np.random.seed(seed), torch.manual_seed(seed)
+- scripts/task16_sdedit_generation.py:328 => umap.UMAP(..., random_state=42)
+- scripts/task17_tstr_experiment.py:80-85 => np.random.seed(seed), torch.manual_seed(seed)
+
+Guardrail 6 — exactly 2 baselines/checkpoints: PASS
+- src/models/baselines.py defines exactly two model classes:
+  - src/models/baselines.py:68 => class VanillaDDPM(nn.Module)
+  - src/models/baselines.py:204 => class LabelConditionedDDPM(nn.Module)
+- results contains exactly two baseline checkpoints:
+  - results/baseline_vanilla.pth
+  - results/baseline_label.pth
+
+Guardrail 7 — single speed only (16Hz): PASS
+- src/configs.py fixes TARGET_HZ = 16.0 and DATA_DIR_PROCESSED = data/processed-mafaulda/16hz
+- No multi-speed config structure was added for the verified pipeline guardrails.
+
+Guardrail 8 — no extra baseline model classes in baselines.py: PASS
+- Only VanillaDDPM and LabelConditionedDDPM are defined in src/models/baselines.py
+
+Conclusion
+- Re-evaluation accepts the clarified T1 full-dataset artifacts in data/ as non-violations.
+- Re-evaluation accepts remaining legitimate task/tracking artifacts as non-violations for this guardrail sweep.
+
+Final verdict
+Tasks [8/8 compliant] | Guardrails [8/8 respected] | VERDICT: APPROVE

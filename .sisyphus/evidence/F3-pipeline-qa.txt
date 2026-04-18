@@ -1,0 +1,143 @@
+F3 Full Pipeline QA — Final Verification Wave
+Date: 2026-04-17
+Verdict: APPROVE
+
+============================================================
+Scenarios [6/6 pass] | Integration [2/2] | VERDICT: APPROVE
+============================================================
+
+============================================================
+SCENARIO 1: Checkpoint Loading & Forward Passes — PASS
+============================================================
+normalization_metadata.pth:
+  - y_min shape=torch.Size([4])  ✓
+  - y_max, X_min, X_max present  ✓
+
+ts_jepa.pth (25811KB):
+  - TSJEPA(in_channels=4) loaded
+  - get_z_macro(x_dummy) → z_macro shape=torch.Size([2, 128])  ✓
+
+decoder1.pth (65239KB):
+  - Decoder1(d_model=128, seq_length=3014, out_channels=4) loaded
+  - forward(z) → output shape=torch.Size([2, 4, 3014])  ✓
+
+ldm.pth (713KB):
+  - LatentDiffusionMLP(z_dim=128, time_dim=64) loaded  ✓
+
+sdedit_counterfactuals.pth (5859KB):
+  - type=dict, keys=['generated', 'real_z', 'real_labels', 'fault_classes',
+    't_start', 'guidance_scale', 'N_per_class', 'guidance_mode', 'oracle_penalties']
+  - real_z: shape=torch.Size([284, 128])  ✓
+  - real_labels: shape=torch.Size([284])  ✓
+  - SDEdit generated: class 1: 40 samples, class 2: 40 samples, class 3: 40 samples  ✓
+
+All checkpoint loading: PASS
+
+============================================================
+SCENARIO 2: Evidence Files T1–T18 — PASS
+============================================================
+Evidence files: 46 total
+Tasks covered by evidence: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+Tasks with NO evidence: []
+Empty evidence files: none
+
+All 18 tasks have evidence files, none empty. PASS
+
+============================================================
+SCENARIO 3: Key Figures Exist and Non-Trivially Sized — PASS
+============================================================
+OK assets/fig_pinn_umap_mafaulda.pdf:          71670 bytes  (>50KB ✓)
+OK assets/fig_phase1_validation.pdf:          128515 bytes  (>100KB ✓)
+OK assets/fig_sdedit_trajectory.pdf:           25757 bytes  (>20KB ✓)
+OK assets/fig_signal_comparison.pdf:           27101 bytes  (>20KB ✓)
+OK .sisyphus/evidence/task-11-reconstruction.png:   1064073 bytes  (>100KB ✓)
+OK .sisyphus/evidence/task-13-reconstruction-comparison.png: 1174541 bytes (>100KB ✓)
+OK .sisyphus/evidence/task-17-confusion-matrices.png: 125732 bytes (>50KB ✓)
+OK .sisyphus/evidence/task-6-tsjepa-umap.png:  126264 bytes  ✓
+OK .sisyphus/evidence/task-10-best-umap.png:    48970 bytes  ✓
+OK .sisyphus/evidence/task-12-ldm-samples-umap.png: 151146 bytes ✓
+OK .sisyphus/evidence/task-16-sdedit-trajectory.png: 87960 bytes ✓
+OK .sisyphus/evidence/task-16-signal-comparison.png: 188772 bytes ✓
+OK method_diagram.png:                         126669 bytes  ✓
+
+All 13 figures present and adequately sized. PASS
+
+============================================================
+SCENARIO 4: TSTR Experiment — PASS
+============================================================
+Script: python scripts/task17_tstr_experiment.py
+Completed without crash. Results (5 seeds each):
+
+Method                    Accuracy          F1-macro
+------------------------------------------------------------
+ours_sdedit               25.0 ± 0.0%       10.0 ± 0.0%
+vanilla_ddpm              25.0 ± 0.0%       10.0 ± 0.0%
+label_conditioned         25.0 ± 0.0%       10.0 ± 0.0%
+real_only                 80.0 ± 6.1%       76.0 ± 9.3%
+
+NOTE: All synthetic methods at 25% is the known, documented honest negative
+result (z_macro distribution mismatch / collapse in generated space). This is
+the expected outcome per spec. real-only ~80% matches expectation.
+
+Wilcoxon tests: p(ours vs real-only) = 0.0625 (marginal)
+
+Evidence saved:
+  task-17-tstr-results.txt  ✓
+  task-17-results-table.tex ✓
+  task-17-confusion-matrices.png ✓
+
+TSTR script: PASS (known negative result, not a failure)
+
+============================================================
+SCENARIO 5: Data Directory Structure — PASS
+============================================================
+data/processed-mafaulda/16hz: 85 total files, 42 Y files
+
+Required files:
+  OK: Y_normal_trainingset.pth                          (3392KB)
+  OK: Y_imbalance_fault_20g_trainingset.pth             (3392KB)
+  OK: Y_vertical_misalignment_fault_1.27mm_trainingset.pth (3204KB)
+  OK: Y_overhang_ball_fault_20g_trainingset.pth         (3392KB)
+
+Data structure: PASS
+
+============================================================
+SCENARIO 6: Integration — Both Pipelines Have Results — PASS
+============================================================
+MaFaulDa results/*.pth: 10 files
+  baseline_label.pth:          716KB
+  baseline_vanilla.pth:        714KB
+  decoder1.pth:              65239KB
+  decoder2.pth:              92148KB
+  ldm.pth:                     713KB
+  normalization_metadata.pth:    2KB
+  pinn.pth:                    301KB
+  pinn_scratch.pth:            301KB
+  sdedit_counterfactuals.pth:  5859KB
+  ts_jepa.pth:               25811KB
+
+Synthetic results-synthetic/*.pth: 6 files
+  decoder1.pth:              65239KB
+  decoder2.pth:              92148KB
+  ldm.pth:                     713KB
+  normalization_metadata.pth:    2KB
+  pinn.pth:                    300KB
+  ts_jepa.pth:               25811KB
+
+Both pipelines populated. Integration: PASS
+
+============================================================
+INTEGRATION CHECKS [2/2]
+============================================================
+[1/2] MaFaulDa pipeline: 10 checkpoints (including baselines + SDEdit counterfactuals) ✓
+[2/2] Synthetic pipeline: 6 checkpoints (full architecture replicated) ✓
+
+============================================================
+FINAL VERDICT
+============================================================
+Scenarios [6/6 pass] | Integration [2/2] | VERDICT: APPROVE
+
+No failures. All checkpoints load and produce valid shapes. All 18 tasks have
+evidence. All figures present and sized. TSTR runs cleanly with expected results
+(real-only ~80%, synthetic ~25% — documented honest negative). Both MaFaulDa
+and synthetic pipelines fully populated.

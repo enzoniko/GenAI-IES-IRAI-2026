@@ -1,0 +1,126 @@
+F2 CODE QUALITY REVIEW — IRAI 2026 PIPELINE
+Date: 2026-04-17
+Reviewer: Sisyphus-Junior (automated)
+
+================================================================================
+STEP A — PYTEST
+================================================================================
+Command: python -m pytest tests/ -v --tb=short
+Platform: win32, Python 3.12.7, pytest 7.4.4
+
+RESULTS:
+  tests/test_math_extractor.py::test_math_extractor              PASSED
+  tests/test_oracle.py::test_oracle_differentiability            PASSED
+  tests/test_oracle.py::test_oracle_target_buffers               PASSED
+  tests/test_processed_datasets.py::TestProcessedDatasets::test_normal_16hz_datasets  PASSED
+
+4 passed in 2.40s
+FAILURES: 0
+
+================================================================================
+STEP B — SYNTAX CHECK (py_compile)
+================================================================================
+Files checked: 37 (src/**/*.py + root *.py)
+Result: All files: syntax OK
+SYNTAX ERRORS: 0
+
+================================================================================
+STEP C — CODE QUALITY GREP
+================================================================================
+
+C1: BARE EXCEPT (except: with no type)
+  Count: 0 — CLEAN
+
+C2: STUBS / RAISE NOTIMPLEMENTED
+  Count: 0 — CLEAN
+
+C3: PRINT() IN MODEL FILES (src/models/*.py)
+  src/models/oracles.py:40  — print("Successfully loaded normalization metadata...") [LOAD DIAGNOSTIC]
+  src/models/oracles.py:42  — print("WARNING: Normalization metadata not found...") [LOAD WARNING]
+  src/models/oracles.py:56  — print("Successfully loaded prior PINN weights...") [LOAD INFO]
+  src/models/oracles.py:58  — print("PINN weights found but shape mismatched...") [LOAD WARNING]
+  src/models/oracles.py:60  — print("PINN weights not found...") [LOAD INFO]
+  src/models/relobralo_loss.py:207 — print(f"Error in adaptive_custom_loss: {e}") [ERROR CATCH]
+  Count: 6
+  Assessment: ALL in __init__ load/diagnostic paths or error handler — NOT in forward().
+              Acceptable (diagnostic/startup logging, not performance-critical).
+
+C4: DTYPE COMPLIANCE (pinn.py)
+  .float() calls in forward(): NONE
+  self.double() in __init__: line 170 — CORRECT (whole model cast to float64)
+  dtype=torch.float64 across all parameter declarations: YES (lines 167,184-192)
+  .double() calls in forward boundary handling: lines 246, 315-318, 411-412 — CORRECT
+  Assessment: PINN is fully float64 compliant. No silent float32 downcast.
+
+C5: TODO COMMENTS IN SRC
+  Count: 0 — CLEAN
+
+================================================================================
+STEP D — CHECKPOINT LOADING
+================================================================================
+All 9 checkpoints verified with torch.load(map_location='cpu'):
+
+  OK  results/pinn.pth               keys=['model_state_dict', 'X_min', 'X_max', 'y_min', 'y_max']
+  OK  results/ts_jepa.pth            keys=['mask_token', 'tokenizer.conv.weight', ...]
+  OK  results/decoder1.pth           keys=['fc_proj.0.weight', 'fc_proj.0.bias', ...]
+  OK  results/decoder2.pth           keys=['encoder.cnn.0.weight', ...]
+  OK  results/ldm.pth                keys=['time_mlp.1.weight', ...]
+  OK  results/baseline_vanilla.pth   keys=['time_mlp.1.weight', ...]
+  OK  results/baseline_label.pth     keys=['time_mlp.1.weight', ..., 'class_embedding.weight']
+  OK  results/sdedit_counterfactuals.pth  keys=['generated', 'real_z', 'real_labels', 'fault_classes', 't_start']
+  OK  results/normalization_metadata.pth  keys=['y_min', 'y_max', 'X_min', 'X_max']
+
+FAILURES: 0 / 9 checkpoints
+
+Notable key verification:
+  - pinn.pth: has 'model_state_dict' + normalization bounds — CORRECT
+  - ts_jepa.pth: has 'mask_token' + encoder weights — CORRECT
+  - baseline_label.pth: has 'class_embedding.weight' — label conditioning present
+  - sdedit_counterfactuals.pth: has 'generated', 'fault_classes', 't_start' — counterfactual format correct
+  - normalization_metadata.pth: has y_min, y_max, X_min, X_max — metadata correct
+
+================================================================================
+STEP E — IMPORT CHECKS
+================================================================================
+  python -c "import src.models.pinn"            → pinn OK
+  python -c "import src.models.ts_jepa"         → ts_jepa OK
+  python -c "import src.models.decoder1"        → decoder1 OK
+  python -c "import src.models.latent_diffusion" → ldm OK
+  python -c "import src.data.mafaulda_dataset"  → dataset OK
+
+FAILURES: 0 / 5 modules
+
+================================================================================
+STEP F — FLOAT64 COMPLIANCE (PINN)
+================================================================================
+  self.double() called at __init__ line 170: YES (full model cast)
+  All nn.Parameter tensors use dtype=torch.float64: YES
+  x = x.double() at forward entry (line 246): YES
+  boundary normalization tensors cast with .double() (lines 315-318): YES
+  pred = pred.double() at compute_physics line 411: YES
+  .float() anywhere in forward(): NO
+
+VERDICT: ConfigurablePINN is fully float64-compliant. No float32 leakage.
+
+================================================================================
+SCORING SUMMARY
+================================================================================
+
+REJECT-WORTHY ISSUES:
+  [ ] Syntax errors in any src/ file                          → NONE
+  [ ] Critical checkpoint load failures (pinn/ts_jepa/dec1/ldm) → NONE
+  [ ] Bare except: in model forward() critical path           → NONE
+  [ ] PINN using float32 instead of float64                   → NONE (PASSES)
+
+WARNINGS (acceptable, not reject-worthy):
+  [!] print() in oracles.py __init__ (6 statements)          → ACCEPTABLE
+  [!] print() in relobralo_loss.py error handler (1 stmt)    → ACCEPTABLE
+
+KNOWN NEGATIVES (not code issues):
+  - TSTR = 25% (honest negative result, documented)
+  - Silhouette < 0.3 (documented)
+
+================================================================================
+FINAL VERDICT
+================================================================================
+Tests [4 pass / 0 fail] | Files [37 clean / 0 issues] | VERDICT: APPROVE
