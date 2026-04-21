@@ -19,6 +19,8 @@ RESULTS_DIR = "results"
 # Number of classes in the reduced MaFaulDa dataset
 NUM_CLASSES = 4
 SEQ_LENGTH = 3014 # Standardized for 16Hz biological windows
+# Oracle mode for PriorWorkOracle: "pinn" uses the full physics path, "raw" bypasses it.
+ORACLE_MODE = "pinn"
 
 # How much windows will be used from the dataset
 WINDOW_PCT = 0.90
@@ -78,6 +80,42 @@ RELOBRALO_DEFAULT = {
     'alpha': 0.5125,
     'rho': 0.2332,
     'temperature': 1.4198,
+}
+
+# ── Point-Wise PINN Training (Prior Paper Exact Hyperparameters) ──────────────
+PINN_POINTWISE_SETTINGS = {
+    'epochs': 20000,
+    'batch_size': 256,
+    'learning_rate': 0.0039199623708041885,
+    'max_samples': 1000,
+    'early_stop_patience': 100,
+    'early_stop_min_delta': 1e-7,
+    'lr_scheduler_patience': 50,
+    'lr_scheduler_factor': 0.5,
+}
+
+PINN_POINTWISE_ARCH = {
+    'unmeasured_net_config': {
+        'hidden_layers': [128, 128],
+        'activation': 'elu',
+        'dropout_rate': 0.24900923127192412,
+        'init_method': 'xavier_uniform'
+    },
+    'acceleration_net_config': {
+        'hidden_layers': [128, 128],
+        'activation': 'elu',
+        'dropout_rate': 0.24900923127192412,
+        'init_method': 'xavier_uniform'
+    },
+    'param_init_config': {
+        'method': 'fixed',
+        'values': {
+            'M1': 50.0, 'M2': 3.5, 'M3': 3.5,
+            'D1': 3000.0, 'D2': 3000.0, 'D3': 3000.0,
+            'K1': 3.4635e6, 'K2': 3.8127e6, 'E1': 5.0e-6
+        }
+    },
+    'enable_mass_constraints': True
 }
 
 # ==============================================================================

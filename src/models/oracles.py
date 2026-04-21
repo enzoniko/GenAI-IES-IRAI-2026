@@ -19,6 +19,19 @@ class PriorWorkOracle(nn.Module):
         self.dt = 1.0 / cfg.SAMPLING_RATE
         # Note: seq_len is NOT stored — the data pipeline uses full-rotation windowing
         # (window_size = fs / rotation_hz), so L varies per batch. All ops here are length-agnostic.
+
+        self.oracle_mode = cfg.ORACLE_MODE
+        if self.oracle_mode not in {"pinn", "raw"}:
+            raise ValueError(f"Unsupported ORACLE_MODE: {self.oracle_mode}")
+
+        if self.oracle_mode == "raw":
+            self.pinn = None
+            self.feature_extractor = MathFeatureExtractor(in_channels=4)
+            self.embed_dim = self.feature_extractor.output_dim  # 1120 for 4 channels
+            self.register_buffer('target_distributions', torch.zeros(cfg.NUM_CLASSES, self.embed_dim))
+            for param in self.parameters():
+                param.requires_grad = False
+            return
         
         # 1. Instantiate the Physics-Informed Neural Network (PINN)
         pinn_config = cfg.PINN_ARCH_DEFAULT
@@ -183,6 +196,10 @@ class PriorWorkOracle(nn.Module):
         Output: (Batch, embed_dim) — 2240 features.
         """
         B, _, L = x.shape
+
+        if self.oracle_mode == "raw":
+            x_input = x.permute(0, 2, 1)
+            return self.feature_extractor(x_input)
         
         # 0. Restore physical scale via precise Min-Max denormalization
         # Input x is assumed to be normalized exactly как the dataset targets.
