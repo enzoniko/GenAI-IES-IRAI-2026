@@ -1,7 +1,70 @@
-.vscode
-src/data/__pycache__
-src/models/__pycache__
-src/pipelines/__pycache__
-mafaulda-data
+# Python
 __pycache__/
-/data
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data (MaFaulDa + Synthetic raw)
+mafaulda-data/
+data/processed-mafaulda/
+data/processed-synthetic/
+data/raw-*
+data/*.csv
+data/*.pth  # Raw data in pth format
+
+# Results (checkpoints - can regenerate)
+results/*.pth
+results/*.db
+results/*.db-shm
+results/*.db-wal
+results/smoke_test.db
+results/optuna_*.db
+results/comparison_summary.md
+
+# Logs
+logs/
+*.log
+
+# Evidence (can regenerate from code)
+.sisyphus/evidence/
+!.sisyphus/evidence/results-summary.md
+
+# Notepads (optional - can regenerate)
+.sisyphus/notepads/
+.sisyphus/boulder.json
+
+# Plans (keep the main plan)
+!.sisyphus/plans/
+!.sisyphus/plans/pipeline-optimization.md
+.sisyphus/plans/*.md
+.sisyphus/plans/irai-*
+.sisyphus/plans/pinn-*
+
+# Evidence subdirs we DO want to keep
+!.sisyphus/evidence/results-summary.md
+!.sisyphus/evidence/task-14-tstr-mmd-metrics.txt
+!.sisyphus/evidence/task-9-synthetic-guided-metrics.txt
+!.sisyphus/evidence/task-8-raw-bypass-clustering.txt
+!.sisyphus/evidence/F4-scope-fidelity-revised.txt
+
+# Temp files
+*.tmp
+*.bak
+omo.txt
+OMO/

@@ -62,13 +62,14 @@ from src.pipelines.train_phase1 import (
     extract_residuals_and_train_decoder2,
     plot_umap,
 )
-from src.pipelines.run_sdedit_phase2 import train_latent_diffusion
+from src.pipelines.run_sdedit_phase2 import train_latent_diffusion, run_guided_sdedit
 from src.models import (
     TSJEPA,
     Decoder1,
     Decoder2CVAE,
     LatentDiffusionMLP,
     DDPMScheduler,
+    PriorWorkOracle,
 )
 
 # ── Default epoch budgets ─────────────────────────────────────────────────────
@@ -331,11 +332,148 @@ def compute_fairness(ts_jepa, ldm, scheduler,
     }
 
 
+# ── Step 3.5: Guided SDEdit Generation ───────────────────────────────────────
+def run_guided_sdedit_synthetic(ts_jepa, decoder1, decoder2, ldm, scheduler,
+                                 val_loader, device):
+    """Physics-guided SDEdit counterfactual generation for fault classes 1, 2, 3.
+
+    Steps
+    -----
+    1. Instantiate PriorWorkOracle (reads cfg.PINN_MODEL_PATH automatically).
+    2. Calibrate oracle target distributions from val_loader (mandatory).
+    3. For each fault class (1, 2, 3): pick one healthy sample, run SDEdit.
+    4. Encode counterfactuals to z_macro and compute a TSTR ratio.
+    """
+    print("\n" + "=" * 68)
+    print("SYNTHETIC STEP 3.5: Guided SDEdit Generation")
+    print("=" * 68)
+
+    # cfg.PINN_MODEL_PATH already set at module top → results-synthetic/pinn.pth
+    oracle = PriorWorkOracle().to(device)
+
+    # ── Mandatory oracle target calibration before any SDEdit call ────────────
+    print("--- Calibrating Oracle target distributions ---")
+    oracle.eval()
+    with torch.no_grad():
+        for class_idx in range(cfg.NUM_CLASSES):
+            class_embs = []
+            for batch in val_loader:
+                raw, _, labels = batch
+                mask = labels == class_idx
+                if mask.sum() == 0:
+                    continue
+                emb = oracle(raw[mask].to(device),
+                             omega=batch.omega[mask].to(device))
+                class_embs.append(emb)
+            if class_embs:
+                avg_emb = torch.cat(class_embs, dim=0).mean(0)
+                oracle.set_target_distribution(class_idx, avg_emb)
+                print(f"  Calibrated target for class {class_idx}")
+
+    # ── Find a single healthy sample (class 0) from val_loader ───────────────
+    healthy_raw       = None
+    healthy_omega_val = None
+    for batch in val_loader:
+        raw, _, labels = batch
+        healthy_mask = labels == 0
+        if healthy_mask.any():
+            idx               = 0
+            healthy_raw       = raw[healthy_mask][idx:idx+1].to(device)  # (1, 4, L)
+            healthy_omega_val = batch.omega[healthy_mask][idx:idx+1]     # (1,)
+            break
+
+    if healthy_raw is None:
+        print("  [WARNING] No healthy samples found in val_loader. Skipping SDEdit.")
+        return None
+
+    # ── Guided SDEdit for each fault class 1, 2, 3 ───────────────────────────
+    gen_z_macros      = []
+    gen_pseudo_labels = []
+
+    for class_idx in [1, 2, 3]:
+        print(f"\n--- SDEdit: Healthy -> Fault Class {class_idx}"
+              f" ({CLASS_NAMES[class_idx]}) ---")
+        try:
+            counterfactual = run_guided_sdedit(
+                ts_jepa, decoder1, decoder2, ldm, oracle, scheduler,
+                healthy_raw, class_idx, val_loader, device,
+                omega=healthy_omega_val,
+                num_inference_steps=100,
+                guidance_scale=1.0,
+            )
+            ts_jepa.eval()
+            with torch.no_grad():
+                z_m = ts_jepa.get_z_macro(counterfactual)  # (1, d_model)
+            gen_z_macros.append(z_m.cpu())
+            gen_pseudo_labels.append(class_idx)
+            print(f"  Counterfactual z_macro shape: {z_m.shape}")
+        except Exception as exc:
+            print(f"  SDEdit failed for class {class_idx}: {exc}")
+
+    if not gen_z_macros:
+        print("  [WARNING] All SDEdit calls failed. Skipping TSTR computation.")
+        return None
+
+    # ── TSTR ratio: generated z_macro vs. real fault embeddings ──────────────
+    ts_jepa.eval()
+    real_z_list, real_lbl_list = [], []
+    with torch.no_grad():
+        for batch in val_loader:
+            raw, _, labels = batch
+            z = ts_jepa.get_z_macro(raw.to(device))
+            real_z_list.append(z.cpu())
+            real_lbl_list.append(labels)
+
+    z_real      = torch.cat(real_z_list,   dim=0).numpy()
+    labels_real = torch.cat(real_lbl_list, dim=0).numpy()
+
+    # Restrict to fault classes (1,2,3) for a coherent 3-class comparison
+    fault_mask         = labels_real > 0
+    z_real_fault       = z_real[fault_mask]
+    labels_real_fault  = labels_real[fault_mask]
+
+    z_gen      = torch.cat(gen_z_macros,           dim=0).numpy()
+    labels_gen = np.array(gen_pseudo_labels)
+
+    scaler_oracle = StandardScaler()
+    z_rf_sc       = scaler_oracle.fit_transform(z_real_fault)
+    n_cv          = min(5, len(np.unique(labels_real_fault)),
+                        len(z_real_fault))
+    lr_oracle     = LogisticRegression(max_iter=1000, random_state=42, C=1.0)
+    cv_scores     = cross_val_score(lr_oracle, z_rf_sc, labels_real_fault,
+                                    cv=n_cv, scoring='accuracy')
+    oracle_acc    = float(cv_scores.mean())
+
+    tstr_acc = 0.0
+    try:
+        scaler_tstr   = StandardScaler()
+        z_gen_sc      = scaler_tstr.fit_transform(z_gen)
+        lr_tstr       = LogisticRegression(max_iter=1000, random_state=42, C=1.0)
+        lr_tstr.fit(z_gen_sc, labels_gen)
+        z_rf_in_gen   = scaler_tstr.transform(z_real_fault)
+        tstr_preds    = lr_tstr.predict(z_rf_in_gen)
+        tstr_acc      = float((tstr_preds == labels_real_fault).mean())
+    except Exception as exc:
+        print(f"  TSTR fit failed: {exc}")
+
+    ratio = tstr_acc / oracle_acc if oracle_acc > 1e-9 else 0.0
+    print(f"\n  Oracle accuracy (fault classes, {n_cv}-fold CV): {oracle_acc:.4f}")
+    print(f"  TSTR accuracy  (guided generated -> real fault): {tstr_acc:.4f}")
+    print(f"  Guided SDEdit Ratio (TSTR/Oracle): {ratio:.4f}")
+
+    return {
+        'oracle_accuracy': oracle_acc,
+        'tstr_accuracy':   tstr_acc,
+        'ratio':           ratio,
+    }
+
+
 # ── Main orchestrator ─────────────────────────────────────────────────────────
 def run_synthetic_pipeline(pinn_epochs   = PINN_EPOCHS,
                             tsjepa_epochs = TSJEPA_EPOCHS,
                             ldm_epochs    = LDM_EPOCHS,
-                            batch_size    = BATCH_SIZE):
+                            batch_size    = BATCH_SIZE,
+                            skip_guidance = False):
 
     device = torch.device(
         'cuda' if torch.cuda.is_available() else
@@ -415,12 +553,24 @@ def run_synthetic_pipeline(pinn_epochs   = PINN_EPOCHS,
     finally:
         sys.stdout = old_stdout
 
+    # ── Step 3.5: Guided SDEdit Generation ──────────────────────────────────
+    guided_buf = TeeBuffer(old_stdout)
+    sys.stdout = guided_buf
+    try:
+        if not skip_guidance:
+            guided_metrics = run_guided_sdedit_synthetic(
+                ts_jepa, decoder1, decoder2, ldm, scheduler, val_loader, device
+            )
+    finally:
+        sys.stdout = old_stdout
+
     # Combine pipeline logs
     pipeline_log = (
         f"=== Synthetic Pipeline Run — {datetime.datetime.now().isoformat()} ===\n\n"
         "=== PHASE 0 OUTPUT ===\n" + p0_buf.getvalue() +
         "\n=== PHASE 1 OUTPUT ===\n" + p1_buf.getvalue() +
-        "\n=== PHASE 2 OUTPUT ===\n" + p2_buf.getvalue()
+        "\n=== PHASE 2 OUTPUT ===\n" + p2_buf.getvalue() +
+        "\n=== STEP 3.5 OUTPUT ===\n" + guided_buf.getvalue()
     )
     save_evidence("task-8-synthetic-pipeline.txt", pipeline_log)
 
@@ -488,6 +638,8 @@ if __name__ == "__main__":
                         help="LDM training epochs (default 20)")
     parser.add_argument("--batch_size",    type=int, default=BATCH_SIZE,
                         help="Mini-batch size (default 32)")
+    parser.add_argument("--skip_guidance", action="store_true", default=False,
+                        help="Skip guided SDEdit phase (Step 3.5)")
     args = parser.parse_args()
 
     run_synthetic_pipeline(
@@ -495,4 +647,5 @@ if __name__ == "__main__":
         tsjepa_epochs = args.tsjepa_epochs,
         ldm_epochs    = args.ldm_epochs,
         batch_size    = args.batch_size,
+        skip_guidance = args.skip_guidance,
     )

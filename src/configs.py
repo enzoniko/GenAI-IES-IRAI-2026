@@ -20,7 +20,8 @@ RESULTS_DIR = "results"
 NUM_CLASSES = 4
 SEQ_LENGTH = 3014 # Standardized for 16Hz biological windows
 # Oracle mode for PriorWorkOracle: "pinn" uses the full physics path, "raw" bypasses it.
-ORACLE_MODE = "pinn"
+ORACLE_MODE: str = "raw"
+PINN_NO_DENORM: bool = False  # Step B/C flag: skip physical de-normalization in PINN loss
 
 # How much windows will be used from the dataset
 WINDOW_PCT = 0.90
@@ -87,7 +88,7 @@ PINN_POINTWISE_SETTINGS = {
     'epochs': 20000,
     'batch_size': 256,
     'learning_rate': 0.0039199623708041885,
-    'max_samples': 1000,
+    'max_samples': None,
     'early_stop_patience': 100,
     'early_stop_min_delta': 1e-7,
     'lr_scheduler_patience': 50,
@@ -129,11 +130,13 @@ PHASE1_TRAIN_SETTINGS = {
     'early_stop_patience': 25,
 }
 
+# TS-JEPA HPO reference: 2026-04-24 CPU-adapted run, best trial 3.
+# Best HPO training lr: 0.00018567534073632848 (reference only; keep runtime config separate)
 JEPA_CONFIG = {
-    'd_model': 128,
-    'patch_size': 50,
+    'd_model': 128,      # fixed — z_macro dimension (do not change)
+    'patch_size': 25,    # HPO-optimized (Trial 3, 2026-04-24, z_macro_std=6.3e-4)
     'nhead': 4,
-    'num_layers': 4,
+    'num_layers': 4,     # fixed architectural constraint
     'ema_decay': 0.99,
 }
 
@@ -146,9 +149,9 @@ PHASE2_TRAIN_SETTINGS = {
 }
 
 SDEDIT_GUIDANCE_SETTINGS = {
-    'num_inference_steps': 1000,
-    'guidance_scale': 0.5,
-    'strength': 0.5,
+    'num_inference_steps': 10,    # HPO-optimized (sdedit-hpo, best MMD trial)
+    'guidance_scale': 0.4203,     # HPO-optimized (sdedit-hpo, best MMD trial)
+    'strength': 0.1062,           # HPO-optimized (sdedit-hpo, best MMD trial)
 }
 
 # ==============================================================================

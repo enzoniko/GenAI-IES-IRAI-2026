@@ -35,7 +35,7 @@ Y_FILES = [
     (os.path.join(DATA_16HZ, "Y_overhang_ball_fault_20g_trainingset.pth"),          3),
 ]
 NORM_PATH   = "results/normalization_metadata.pth"
-JEPA_PATH   = "results/ts_jepa.pth"
+JEPA_PATH   = "results/ts_jepa_hpo_best.pth"
 LDM_PATH    = "results/ldm.pth"
 EVIDENCE_DIR = ".sisyphus/evidence"
 LOG_PATH    = os.path.join(EVIDENCE_DIR, "task-12-ldm-training.txt")
@@ -77,7 +77,10 @@ log(f"y_max: {y_max.tolist()}")
 # ─── Step 2: Load frozen TS-JEPA ──────────────────────────────────────────────
 log("\n=== Loading frozen TS-JEPA ===")
 ts_jepa = TSJEPA(in_channels=4).to(device)
-state = torch.load(JEPA_PATH, map_location=device, weights_only=True)
+state = torch.load(JEPA_PATH, map_location=device, weights_only=False)
+# Handle both wrapped (HPO checkpoint) and bare state_dict formats
+if "model_state_dict" in state:
+    state = state["model_state_dict"]
 ts_jepa.load_state_dict(state)
 for param in ts_jepa.parameters():
     param.requires_grad = False
