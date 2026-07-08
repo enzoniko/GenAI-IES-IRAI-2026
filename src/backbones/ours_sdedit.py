@@ -61,6 +61,9 @@ class OursSDEditBackbone:
         x_h, omega = self._source_healthy(n, source)
         with torch.no_grad():
             z = self.jepa.get_z_macro(x_h)
+        # diffusion runs in the LDM's standardized latent space
+        zm, zs = self.ldm.z_mean, self.ldm.z_std
+        z = (z - zm) / zs
         t0 = max(1, int(sc.t0_frac * self.scheduler.num_train_timesteps))
         noise = torch.randn_like(z)
         z_t = self.scheduler.add_noise(
@@ -75,7 +78,7 @@ class OursSDEditBackbone:
             g = torch.zeros_like(z_t)
             if guidance is not None and i % max(1, sc.guidance_interval) == 0:
                 z_req = z_t.detach().requires_grad_(True)
-                x_tmp = self.dec1(z_req)
+                x_tmp = self.dec1(z_req * zs + zm)
                 v = self.oracle.embed(x_tmp, omega)
                 pen = guidance.penalty(v)
                 g = torch.autograd.grad(pen, z_req)[0]
@@ -92,6 +95,7 @@ class OursSDEditBackbone:
         with torch.no_grad():
             lab = torch.full((z_t.shape[0],), target_class, device=self.device,
                              dtype=torch.long)
-            x_out = self.dec1(z_t) + self.dec2.sample(z_t, lab)
+            z_out = z_t * zs + zm
+            x_out = self.dec1(z_out) + self.dec2.sample(z_out, lab)
         return {"x": x_out.detach(), "omega": omega, "trace": trace,
-                "z_final": z_t.detach()}
+                "z_final": z_out.detach()}

@@ -64,10 +64,14 @@ class FaultDiffBackbone:
                                            hidden=cfg.ldm.hidden).to(device)
         try:
             p = get_artifact(cfg, "fd_backbone")
-            self.backbone.load_state_dict(torch.load(p, map_location=device,
-                                                     weights_only=True))
+            ckpt = torch.load(p, map_location=device, weights_only=True)
+            self.backbone.load_state_dict(ckpt["state_dict"])
+            self.z_mean = ckpt["z_mean"].to(device)
+            self.z_std = ckpt["z_std"].to(device)
         except (KeyError, FileNotFoundError):
             self._train_backbone()
+            self.z_mean = self.z_mean.to(device)
+            self.z_std = self.z_std.to(device)
         for p_ in self.backbone.parameters():
             p_.requires_grad = False
         self.backbone.eval()
@@ -81,9 +85,11 @@ class FaultDiffBackbone:
         return torch.cat(zs)
 
     def _train_backbone(self):
-        """Frozen-normal stage: DDPM on HEALTHY latents only."""
+        """Frozen-normal stage: DDPM on HEALTHY latents only (standardized)."""
         epochs = 5 if self.cfg.smoke else self.cfg.ldm.epochs
         Z = self._encode(self.bundle.loader("train", 64, shuffle=False, classes=[0]))
+        self.z_mean, self.z_std = Z.mean(0), Z.std(0) + 1e-6
+        Z = (Z - self.z_mean) / self.z_std
         opt = torch.optim.Adam(self.backbone.parameters(), lr=self.cfg.ldm.lr)
         for ep in range(epochs):
             perm = torch.randperm(Z.shape[0], device=self.device)
@@ -99,7 +105,8 @@ class FaultDiffBackbone:
                 opt.step()
         path = Path(self.cfg.results_root) / self.cfg.experiment / "fd_backbone.pth"
         path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save(self.backbone.state_dict(), path)
+        torch.save({"state_dict": self.backbone.state_dict(),
+                    "z_mean": self.z_mean.cpu(), "z_std": self.z_std.cpu()}, path)
         register_artifact(self.cfg, "fd_backbone", path)
 
     def fit_adapter(self, target_class: int, fewshot: dict | None = None) -> _Adapter:
@@ -112,6 +119,7 @@ class FaultDiffBackbone:
         x = self.bundle.normalize(fs["raw_phys"]).to(self.device)
         with torch.no_grad():
             Z = self.jepa.get_z_macro(x)
+        Z = (Z - self.z_mean) / self.z_std
         adapter = _Adapter(z_dim=self.cfg.jepa.d_model,
                            time_dim=self.cfg.ldm.time_dim).to(self.device)
         opt = torch.optim.Adam(adapter.parameters(), lr=self.lr)
@@ -148,7 +156,7 @@ class FaultDiffBackbone:
             g = torch.zeros_like(z)
             if guidance is not None and i % max(1, sc.guidance_interval) == 0:
                 z_req = z.detach().requires_grad_(True)
-                v = self.oracle.embed(self.dec1(z_req), om)
+                v = self.oracle.embed(self.dec1(z_req * self.z_std + self.z_mean), om)
                 pen = guidance.penalty(v)
                 g = torch.autograd.grad(pen, z_req)[0]
                 gn = g.norm()
@@ -158,5 +166,6 @@ class FaultDiffBackbone:
                 z = self.ddim.step(z, eps, t, t_prev) - sc.guidance_scale * g
         with torch.no_grad():
             lab = torch.full((n,), target_class, device=self.device, dtype=torch.long)
-            x = self.dec1(z) + self.dec2.sample(z, lab)
+            z_out = z * self.z_std + self.z_mean
+            x = self.dec1(z_out) + self.dec2.sample(z_out, lab)
         return {"x": x.detach(), "omega": om, "trace": None}

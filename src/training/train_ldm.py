@@ -39,6 +39,13 @@ def train_ldm(cfg: RunCfg, bundle=None, run: RunDir | None = None,
 
     Ztr, Ltr = encode("train")
     Zva, Lva = encode("val")
+    # standardize latents: eps-prediction diffusion assumes ~N(0,1)-scale data;
+    # raw z_macro (per-dim std ~0.7, nonzero means) biased the denoiser and made
+    # DDIM trajectories drift off-manifold (measured: eta=0 SDEdit round-trip
+    # MSE 65.7 vs 0.26 direct reconstruction before this fix)
+    z_mean, z_std = Ztr.mean(0), Ztr.std(0) + 1e-6
+    Ztr = (Ztr - z_mean) / z_std
+    Zva = (Zva - z_mean) / z_std
     opt = torch.optim.Adam(model.parameters(), lr=lc.lr)
     es = EarlyStopping(patience=lc.early_stop_patience)
     best_state = None
@@ -83,7 +90,8 @@ def train_ldm(cfg: RunCfg, bundle=None, run: RunDir | None = None,
     zgen = ddim.sample(model, 64, cfg.jepa.d_model, device, n_steps=50, label=lab)
     ratio = (zgen.std() / Ztr.std()).item()
     ckpt = run.file(f"{artifact_name}.pth")
-    torch.save(model.state_dict(), ckpt)
+    torch.save({"state_dict": model.state_dict(),
+                "z_mean": z_mean.cpu(), "z_std": z_std.cpu()}, ckpt)
     register_artifact(cfg, artifact_name, ckpt)
     run.log(val_loss=es.best, sample_std_ratio=ratio, ckpt=str(ckpt))
     return run
@@ -94,8 +102,13 @@ def load_ldm(cfg: RunCfg, n_classes: int, device="cpu",
     lc = cfg.ldm
     m = LatentDiffusionMLP(z_dim=cfg.jepa.d_model, time_dim=lc.time_dim, hidden=lc.hidden,
                            num_classes=n_classes if lc.class_cond else None)
-    m.load_state_dict(torch.load(get_artifact(cfg, artifact_name), map_location="cpu",
-                                 weights_only=True))
+    ckpt = torch.load(get_artifact(cfg, artifact_name), map_location="cpu",
+                      weights_only=True)
+    m.load_state_dict(ckpt["state_dict"])
+    # latent standardization stats (see train_ldm) — consumers must run the
+    # diffusion in normalized space and denormalize before decoding
+    m.z_mean = ckpt["z_mean"].to(device)
+    m.z_std = ckpt["z_std"].to(device)
     m.to(device).eval()
     for p in m.parameters():
         p.requires_grad = False
