@@ -40,8 +40,11 @@ class PCAProjector(nn.Module):
         U, S, Vt = torch.linalg.svd(Vc, full_matrices=False)
         d = min(dim, S.shape[0])
         comps = Vt[:d].T.contiguous()                      # (F, d)
-        scale = S[:d] / (max(V.shape[0] - 1, 1)) ** 0.5    # per-component std
-        return PCAProjector(mean, comps, scale.clamp(min=1e-9))
+        # NO whitening: equalizing discriminative high-variance directions
+        # with noise directions destroys class separation (measured: 0.42 ->
+        # 0.17 silhouette). Density estimators handle scale internally.
+        scale = torch.ones(d, dtype=torch.float64)
+        return PCAProjector(mean, comps, scale)
 
     def forward(self, v: torch.Tensor) -> torch.Tensor:
         return ((v.double() - self.mean) @ self.components) / self.scale

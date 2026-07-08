@@ -58,11 +58,22 @@ def mardia(V: np.ndarray) -> dict:
             "mardia_kurt_excess": float(b2 - b2_expected)}
 
 
-def gng_scores(V: np.ndarray, max_samples: int = 500, seed: int = 0) -> dict:
-    """All three non-Gaussianity statistics for one class cluster (n, d)."""
+def gng_scores(V: np.ndarray, max_samples: int = 500, seed: int = 0,
+               local_dim: int = 8) -> dict:
+    """All three non-Gaussianity statistics for one class cluster (n, d).
+
+    Statistics are computed in the cluster's OWN top-`local_dim` PCA subspace:
+    class clusters are near-degenerate in the full embedding (variance lives
+    in a few fault-parameter directions), and full-dim whitening inflates the
+    statistics with ridge/noise artifacts. Local projection measures the
+    shape where the variance actually is."""
     rng = np.random.default_rng(seed)
     if len(V) > max_samples:
         V = V[rng.choice(len(V), max_samples, replace=False)]
+    if local_dim and V.shape[1] > local_dim and len(V) > local_dim + 2:
+        Vc = V - V.mean(axis=0)
+        _, _, Vt = np.linalg.svd(Vc, full_matrices=False)
+        V = Vc @ Vt[:local_dim].T
     Z = _standardize(V)
     out = {"henze_zirkler": henze_zirkler(V)}
     out.update(mardia(V))

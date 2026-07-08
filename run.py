@@ -55,33 +55,45 @@ def verify_geometry(cfg):
     from src.evaluation import geometry_table
     from src.experiments import Context
 
+    from sklearn.model_selection import cross_val_score
+    from sklearn.neighbors import KNeighborsClassifier
+
     ctx = Context(cfg)
     run = RunDir(cfg, "verify_geometry")
-    rows = geometry_table(ctx.emb["test"], ctx.feats["test"]["label"].numpy(),
-                          ctx.feats["test"]["speed_hz"].numpy(), seed=cfg.seed)
+    labels = ctx.feats["test"]["label"].numpy()
+    speeds = ctx.feats["test"]["speed_hz"].numpy()
+    rows = geometry_table(ctx.emb["test"], labels, speeds, seed=cfg.seed)
     import pandas as pd
     df = pd.DataFrame(rows)
     df.to_csv(run.file("geometry.csv"), index=False)
     hz = df.groupby("class")["henze_zirkler"].mean()
     names = ctx.bundle.meta["class_names"]
     by_name = {names[int(c)]: float(v) for c, v in hz.items()}
-    checks = {}
-    if "imbalance_uni" in by_name:
-        fault_named = {k: v for k, v in by_name.items() if k != "healthy"}
-        low_group = ("imbalance_uni", "looseness_skew", "misalign_cont")
-        high_group = [k for k in ("imbalance_bi", "bpfo_impulsive", "combo_ring")
-                      if k in fault_named]
-        checks["uni_is_least_gaussian_of_low_group"] = by_name["imbalance_uni"] <= min(
-            by_name.get(k, np.inf) for k in low_group)
-        if high_group:
-            checks["high_geometry_classes_above_uni"] = all(
-                by_name[k] > by_name["imbalance_uni"] for k in high_group)
+    # class-informativeness of the embedding (per speed, then averaged)
+    knns = [float(cross_val_score(KNeighborsClassifier(5),
+                                  ctx.emb["test"][speeds == sp], labels[speeds == sp],
+                                  cv=5).mean()) for sp in np.unique(speeds)]
+    knn = float(np.mean(knns))
+    sil = float(df["global_silhouette"].mean())     # per-speed silhouettes, averaged
+    checks = {
+        # P1.3 gate: physics embedding must separate classes
+        "silhouette_per_speed_ge_0.3": sil >= 0.3,
+        "knn_per_speed_ge_0.9": knn >= 0.9,
+    }
+    if "imbalance_bi" in by_name and "healthy" in by_name:
+        faults = {k: v for k, v in by_name.items() if k != "healthy"}
+        # P1.5 gate: the geometry dial must produce its DESIGNED ordering
+        checks["healthy_most_gaussian"] = by_name["healthy"] <= min(faults.values())
+        checks["bimodal_least_gaussian"] = by_name["imbalance_bi"] >= max(faults.values())
+        checks["matched_pair_bi_gt_uni"] = (
+            by_name["imbalance_bi"] > by_name.get("imbalance_uni", np.inf))
+        checks["gng_spread_ge_3x"] = max(faults.values()) >= 3 * min(faults.values())
     gate = all(checks.values()) if checks else False
-    sil = float(df["global_silhouette"].mean())
     run.log(gng_by_class=by_name, checks=checks, gate_passed=gate,
-            mean_silhouette=sil)
+            mean_silhouette=sil, knn_accuracy=knn)
     print(json.dumps({"gng_by_class": by_name, "checks": checks,
-                      "gate_passed": gate, "mean_silhouette": sil}, indent=2))
+                      "gate_passed": gate, "mean_silhouette": sil,
+                      "knn_accuracy": knn}, indent=2))
     return run
 
 
