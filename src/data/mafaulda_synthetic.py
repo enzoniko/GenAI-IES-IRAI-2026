@@ -19,7 +19,7 @@ from src.physics import FaultKnobs, RotorParams, sample_knobs, set_speed_couplin
 from .contract import Batch, WindowDataset, collate, make_loader
 
 SPLITS = ("train", "val", "test")
-GENERATOR_VERSION = 2  # bump whenever simulator/measurement semantics change
+GENERATOR_VERSION = 3  # bump whenever simulator/measurement semantics change
 
 
 def _dir(cfg: DataCfg) -> Path:
@@ -78,7 +78,11 @@ def generate(cfg: DataCfg, verbose: bool = True) -> Path:
                     int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], "little"))
                 knobs, pr = sample_knobs(cls, B, rng)
                 set_speed_coupling(knobs, speed)
-                omega = 2 * np.pi * speed * (1 + rng.uniform(-0.02, 0.02, B))
+                # +-0.5% speed jitter: realistic for a fixed-speed rig, and small
+                # enough that resonance-curvature does not swamp the DESIGNED
+                # geometry of tight classes (measured at +-2%: imbalance_uni's
+                # (kappa, omega) manifold curvature dominated its G_y)
+                omega = 2 * np.pi * speed * (1 + rng.uniform(-0.005, 0.005, B))
                 chunks = []
                 for s0 in range(0, B, 512):
                     sl = slice(s0, min(s0 + 512, B))
