@@ -1,122 +1,22 @@
 {
-  "active_plan": "D:\\WORK\\GenAI\\GenAI-IES-IRAI-2026\\.sisyphus\\plans\\irai-pipeline-results.md",
-  "started_at": "2026-04-17T18:11:38.226Z",
+  "active_plan": "/media/sf_GenAI/GenAI-IES-IRAI-2026/.sisyphus/plans/paper-revision.md",
+  "started_at": "2026-04-29T19:31:11.612Z",
   "session_ids": [
-    "ses_2639acc09ffeuYNsAH2CoWrkae"
+    "ses_243243754ffe7kDV2aN2oorKbp"
   ],
   "session_origins": {
-    "ses_2639acc09ffeuYNsAH2CoWrkae": "direct"
+    "ses_243243754ffe7kDV2aN2oorKbp": "direct"
   },
-  "plan_name": "irai-pipeline-results",
+  "plan_name": "paper-revision",
   "agent": "atlas",
   "task_sessions": {
-    "todo:1": {
-      "task_key": "todo:1",
-      "task_label": "1",
-      "task_title": "Environment Setup + MaFaulDa Download + Data Processing",
-      "session_id": "ses_26335ef33ffeAP2TmTmQyxsNp3",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-17T19:00:08.707Z"
-    },
-    "todo:2": {
-      "task_key": "todo:2",
-      "task_label": "2",
-      "task_title": "Validation Shim — Normalization Compatibility, Architecture Match, Pipeline Health",
-      "session_id": "ses_2632d0f23ffeAKVA7uTsD3zvti",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-17T19:07:14.947Z"
-    },
-    "todo:3": {
-      "task_key": "todo:3",
-      "task_label": "3",
-      "task_title": "Code Audit of Critical Pipeline Files + Fix Blocking Issues",
-      "session_id": "ses_2632445fcffepoDbCRMVhBmgrN",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-17T19:21:30.119Z"
-    },
-    "todo:5": {
-      "task_key": "todo:5",
-      "task_label": "5",
-      "task_title": "PINN Diagnostic — Load Old Weights, Evaluate on New MaFaulDa Data",
-      "session_id": "ses_26319574dfferW1yLCd7ZeYbt0",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-17T19:35:17.614Z"
-    },
-    "todo:6": {
-      "task_key": "todo:6",
-      "task_label": "6",
-      "task_title": "TS-JEPA Encoder Training on MaFaulDa",
-      "session_id": "ses_262eb8b3cffeEoqCm6dTDlY4H4",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-17T20:18:00.412Z"
-    },
-    "todo:8": {
-      "task_key": "todo:8",
-      "task_label": "8",
-      "task_title": "Synthetic System Re-run + Fairness/Difficulty Validation",
-      "session_id": "ses_262850d5bffe5z6nY5zx8jG52F",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-17T22:07:23.249Z"
-    },
-    "todo:10": {
-      "task_key": "todo:10",
-      "task_label": "10",
-      "task_title": "PINN Variant Comparison + UMAP Generation + Best Model Selection",
-      "session_id": "ses_262824697ffeN97YfyXrJO3JM2",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-17T22:13:43.210Z"
-    },
-    "todo:13": {
-      "task_key": "todo:13",
-      "task_label": "13",
-      "task_title": "Decoder 2 (CVAE Jitter) Training",
-      "session_id": "ses_2627d2046ffeGy1VCUH20rVoZa",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-17T22:21:47.170Z"
-    },
-    "todo:14": {
-      "task_key": "todo:14",
-      "task_label": "14",
-      "task_title": "Phase 1 Complete Validation + Twin Plots",
-      "session_id": "ses_2627174baffeC7lQG3ews6UqrB",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-17T22:30:39.488Z"
-    },
-    "todo:16": {
-      "task_key": "todo:16",
-      "task_label": "16",
-      "task_title": "Physics-Guided SDEdit Counterfactual Generation",
-      "session_id": "ses_26254ea14ffeZqM8kM0psdxwFp",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-17T23:08:03.788Z"
-    },
-    "todo:18": {
-      "task_key": "todo:18",
-      "task_label": "18",
-      "task_title": "Generate Paper Figures + Tables + Update LaTeX",
-      "session_id": "ses_26248df14ffeq8wYNevijenrug",
-      "agent": "Sisyphus-Junior",
-      "category": "writing",
-      "updated_at": "2026-04-17T23:14:14.499Z"
-    },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
-      "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_26233bed0ffeHo1envX8lL9sM6",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-17T23:38:00.364Z"
+      "task_title": "**Plan Compliance + Bypass Purge Audit** — `oracle`",
+      "session_id": "ses_224ace80dffeA3GmCkHAMguT7a",
+      "agent": "oracle",
+      "updated_at": "2026-04-29T22:29:49.064Z"
     }
   }
 }

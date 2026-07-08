@@ -1,4 +1,4 @@
-=== Synthetic Pipeline Run — 2026-04-17T17:38:33.646507 ===
+=== Synthetic Pipeline Run — 2026-04-24T13:35:40.269713 ===
 
 === PHASE 0 OUTPUT ===
 
@@ -7,66 +7,17 @@ SYNTHETIC PHASE 0: PINN Training (normal-class healthy windows)
 ====================================================================
 
 --- Step 2: PINN Training & Feature Extraction Setup ---
-Using device: cuda
+Using device: cpu
   Train windows: 40 | Validation windows: 10
-Epoch 001/50 | Train: 2084107.8965 | Val: 1665395.7274 | LR: 1.00e-04
-Epoch 002/50 | Train: 1180904.5975 | Val: 1020645.8180 | LR: 1.00e-04
-Epoch 003/50 | Train: 868141.4867 | Val: 775069.1809 | LR: 1.00e-04
-Epoch 004/50 | Train: 709020.6501 | Val: 637017.6669 | LR: 1.00e-04
-Epoch 005/50 | Train: 603974.2783 | Val: 578865.9511 | LR: 1.00e-04
-Epoch 006/50 | Train: 562514.3370 | Val: 535136.4011 | LR: 1.00e-04
-Epoch 007/50 | Train: 518015.0474 | Val: 486382.8489 | LR: 1.00e-04
-Epoch 008/50 | Train: 479500.9294 | Val: 480670.8708 | LR: 1.00e-04
-Epoch 009/50 | Train: 481493.6374 | Val: 489977.4128 | LR: 1.00e-04
-Epoch 010/50 | Train: 494595.0922 | Val: 497653.5278 | LR: 1.00e-04
-Epoch 011/50 | Train: 497385.5442 | Val: 486198.3355 | LR: 1.00e-04
-Epoch 012/50 | Train: 480662.0567 | Val: 462333.6241 | LR: 1.00e-04
-Epoch 013/50 | Train: 457074.0720 | Val: 449595.7215 | LR: 1.00e-04
-Epoch 014/50 | Train: 450888.2497 | Val: 455674.3404 | LR: 1.00e-04
-Epoch 015/50 | Train: 457561.3392 | Val: 457709.9383 | LR: 1.00e-04
-Epoch 016/50 | Train: 458823.4152 | Val: 453936.4393 | LR: 1.00e-04
-Epoch 017/50 | Train: 452759.6248 | Val: 443815.1600 | LR: 1.00e-04
-Epoch 018/50 | Train: 443772.2633 | Val: 445181.0115 | LR: 1.00e-04
-Epoch 019/50 | Train: 447165.3102 | Val: 446345.4438 | LR: 1.00e-04
-Epoch 020/50 | Train: 446171.0229 | Val: 440905.4927 | LR: 1.00e-04
-Epoch 021/50 | Train: 442069.3296 | Val: 442687.3156 | LR: 1.00e-04
-Epoch 022/50 | Train: 444408.3273 | Val: 442587.6512 | LR: 1.00e-04
-Epoch 023/50 | Train: 442637.6777 | Val: 439737.6461 | LR: 1.00e-04
-Epoch 024/50 | Train: 440952.4282 | Val: 441341.5697 | LR: 1.00e-04
-Epoch 025/50 | Train: 442743.4858 | Val: 439633.1474 | LR: 1.00e-04
-Epoch 026/50 | Train: 440756.2143 | Val: 439577.5658 | LR: 1.00e-04
-Epoch 027/50 | Train: 440796.6382 | Val: 438995.6217 | LR: 1.00e-04
-Epoch 028/50 | Train: 439971.0933 | Val: 439040.4401 | LR: 1.00e-04
-Epoch 029/50 | Train: 440164.7155 | Val: 438337.3372 | LR: 1.00e-04
-Epoch 030/50 | Train: 439739.7449 | Val: 439564.9769 | LR: 1.00e-04
-Epoch 031/50 | Train: 440646.1170 | Val: 438500.7003 | LR: 1.00e-04
-Epoch 032/50 | Train: 439815.9416 | Val: 438674.9017 | LR: 1.00e-04
-Epoch 033/50 | Train: 440043.2759 | Val: 438115.7489 | LR: 1.00e-04
-Epoch 034/50 | Train: 439552.3649 | Val: 438407.6736 | LR: 1.00e-04
-Epoch 035/50 | Train: 439719.3083 | Val: 437924.3580 | LR: 1.00e-04
-Epoch 036/50 | Train: 439470.4902 | Val: 437995.3198 | LR: 1.00e-04
-Epoch 037/50 | Train: 438845.9891 | Val: 437966.1620 | LR: 1.00e-04
-Epoch 038/50 | Train: 439112.3075 | Val: 437602.0205 | LR: 1.00e-04
-Epoch 039/50 | Train: 438936.5622 | Val: 437918.2779 | LR: 1.00e-04
-Epoch 040/50 | Train: 438962.7551 | Val: 438047.0010 | LR: 1.00e-04
-Epoch 041/50 | Train: 439748.6383 | Val: 438028.9966 | LR: 1.00e-04
-Epoch 042/50 | Train: 438685.0057 | Val: 438022.8597 | LR: 1.00e-04
-Epoch 043/50 | Train: 439289.4339 | Val: 437706.3642 | LR: 1.00e-04
-Epoch 044/50 | Train: 438946.0617 | Val: 438156.1118 | LR: 1.00e-04
-Epoch 045/50 | Train: 439718.7239 | Val: 437582.0969 | LR: 1.00e-04
-Epoch 046/50 | Train: 438901.6419 | Val: 437995.1114 | LR: 1.00e-04
-Epoch 047/50 | Train: 439502.6937 | Val: 438041.4196 | LR: 1.00e-04
-Epoch 048/50 | Train: 439685.2295 | Val: 438268.8230 | LR: 1.00e-04
-Epoch 049/50 | Train: 439199.6654 | Val: 437814.9593 | LR: 5.00e-05
-Epoch 050/50 | Train: 439409.0638 | Val: 437791.2430 | LR: 5.00e-05
-Normalization metadata saved to results-synthetic\normalization_metadata.pth
+Epoch 001/1 | Train: 2101048.7019 | Val: 1696270.5712 | LR: 1.00e-04
+Normalization metadata saved to results-synthetic/normalization_metadata.pth
 
-PINN Oracle training complete. Best checkpoint saved to results-synthetic\pinn.pth
+PINN Oracle training complete. Best checkpoint saved to results-synthetic/pinn.pth
 
 --- Step 3: Final Evaluation on Held-Out Test Set ---
   Test Set Results (10 windows, 1 batches):
-    Data Loss (MSE, normalized):   0.341806
-    Physics Residual Loss (total): 3433680.750842
+    Data Loss (MSE, normalized):   0.331173
+    Physics Residual Loss (total): 3831338.232052
   Test evaluation complete.
 
 === PHASE 1 OUTPUT ===
@@ -76,68 +27,11 @@ SYNTHETIC PHASE 1: TS-JEPA + Decoders Training
 ====================================================================
   Seq length: 3014 | Train batches: 5 | Val batches: 2
 --- Phase 1: Training TS-JEPA ---
-Epoch 1/20, TS-JEPA Train Loss: 0.5576, Val Loss: 0.2831
-Epoch 2/20, TS-JEPA Train Loss: 0.3264, Val Loss: 0.1819
-Epoch 3/20, TS-JEPA Train Loss: 0.2216, Val Loss: 0.0918
-Epoch 4/20, TS-JEPA Train Loss: 0.1531, Val Loss: 0.0493
-Epoch 5/20, TS-JEPA Train Loss: 0.1173, Val Loss: 0.0252
-Epoch 6/20, TS-JEPA Train Loss: 0.0978, Val Loss: 0.0137
-Epoch 7/20, TS-JEPA Train Loss: 0.0875, Val Loss: 0.0076
-Epoch 8/20, TS-JEPA Train Loss: 0.0821, Val Loss: 0.0050
-Epoch 9/20, TS-JEPA Train Loss: 0.0798, Val Loss: 0.0032
-Epoch 10/20, TS-JEPA Train Loss: 0.0793, Val Loss: 0.0023
-Epoch 11/20, TS-JEPA Train Loss: 0.0796, Val Loss: 0.0020
-Epoch 12/20, TS-JEPA Train Loss: 0.0796, Val Loss: 0.0018
-Epoch 13/20, TS-JEPA Train Loss: 0.0798, Val Loss: 0.0018
-Epoch 14/20, TS-JEPA Train Loss: 0.0805, Val Loss: 0.0019
-Epoch 15/20, TS-JEPA Train Loss: 0.0801, Val Loss: 0.0018
-Epoch 16/20, TS-JEPA Train Loss: 0.0804, Val Loss: 0.0019
-Epoch 17/20, TS-JEPA Train Loss: 0.0805, Val Loss: 0.0020
-Epoch 18/20, TS-JEPA Train Loss: 0.0811, Val Loss: 0.0021
-Epoch 19/20, TS-JEPA Train Loss: 0.0813, Val Loss: 0.0021
-Epoch 20/20, TS-JEPA Train Loss: 0.0817, Val Loss: 0.0019
+Epoch 1/1, TS-JEPA Train Loss: 0.5446, Val Loss: 0.2278
 --- Phase 2: Training Decoder 1 (Deterministic) on RAW TRACES ---
-Epoch 1/20, Decoder 1 Train Loss: 0.1211, Val Loss: 0.1515
-Epoch 2/20, Decoder 1 Train Loss: 0.0487, Val Loss: 0.0762
-Epoch 3/20, Decoder 1 Train Loss: 0.0449, Val Loss: 0.0415
-Epoch 4/20, Decoder 1 Train Loss: 0.0437, Val Loss: 0.0360
-Epoch 5/20, Decoder 1 Train Loss: 0.0425, Val Loss: 0.0330
-Epoch 6/20, Decoder 1 Train Loss: 0.0417, Val Loss: 0.0332
-Epoch 7/20, Decoder 1 Train Loss: 0.0417, Val Loss: 0.0319
-Epoch 8/20, Decoder 1 Train Loss: 0.0429, Val Loss: 0.0325
-Epoch 9/20, Decoder 1 Train Loss: 0.0426, Val Loss: 0.0310
-Epoch 10/20, Decoder 1 Train Loss: 0.0413, Val Loss: 0.0312
-Epoch 11/20, Decoder 1 Train Loss: 0.0414, Val Loss: 0.0308
-Epoch 12/20, Decoder 1 Train Loss: 0.0411, Val Loss: 0.0310
-Epoch 13/20, Decoder 1 Train Loss: 0.0415, Val Loss: 0.0308
-Epoch 14/20, Decoder 1 Train Loss: 0.0410, Val Loss: 0.0309
-Epoch 15/20, Decoder 1 Train Loss: 0.0411, Val Loss: 0.0312
-Epoch 16/20, Decoder 1 Train Loss: 0.0411, Val Loss: 0.0310
-Epoch 17/20, Decoder 1 Train Loss: 0.0411, Val Loss: 0.0320
-Epoch 18/20, Decoder 1 Train Loss: 0.0409, Val Loss: 0.0314
-Epoch 19/20, Decoder 1 Train Loss: 0.0408, Val Loss: 0.0311
-Epoch 20/20, Decoder 1 Train Loss: 0.0410, Val Loss: 0.0310
+Epoch 1/1, Decoder 1 Train Loss: 0.1510, Val Loss: 0.1481
 --- Phase 3 & 4: Extracting Residuals & Training Decoder 2 (CVAE) ---
-Epoch 1/20, CVAE Train Loss: 0.1335, Val Loss: 0.0340
-Epoch 2/20, CVAE Train Loss: 0.0391, Val Loss: 0.0320
-Epoch 3/20, CVAE Train Loss: 0.0244, Val Loss: 0.0244
-Epoch 4/20, CVAE Train Loss: 0.0145, Val Loss: 0.0144
-Epoch 5/20, CVAE Train Loss: 0.0111, Val Loss: 0.0083
-Epoch 6/20, CVAE Train Loss: 0.0093, Val Loss: 0.0074
-Epoch 7/20, CVAE Train Loss: 0.0083, Val Loss: 0.0075
-Epoch 8/20, CVAE Train Loss: 0.0078, Val Loss: 0.0068
-Epoch 9/20, CVAE Train Loss: 0.0076, Val Loss: 0.0065
-Epoch 10/20, CVAE Train Loss: 0.0074, Val Loss: 0.0061
-Epoch 11/20, CVAE Train Loss: 0.0074, Val Loss: 0.0059
-Epoch 12/20, CVAE Train Loss: 0.0072, Val Loss: 0.0058
-Epoch 13/20, CVAE Train Loss: 0.0072, Val Loss: 0.0055
-Epoch 14/20, CVAE Train Loss: 0.0072, Val Loss: 0.0055
-Epoch 15/20, CVAE Train Loss: 0.0071, Val Loss: 0.0055
-Epoch 16/20, CVAE Train Loss: 0.0070, Val Loss: 0.0056
-Epoch 17/20, CVAE Train Loss: 0.0070, Val Loss: 0.0054
-Epoch 18/20, CVAE Train Loss: 0.0070, Val Loss: 0.0053
-Epoch 19/20, CVAE Train Loss: 0.0070, Val Loss: 0.0054
-Epoch 20/20, CVAE Train Loss: 0.0070, Val Loss: 0.0053
+Epoch 1/1, CVAE Train Loss: 0.2127, Val Loss: 0.1153
 Phase 1 checkpoints saved to results-synthetic/
 --- Phase 5.5: UMAP Latent Space Projection ---
 Saved UMAP projection to results/umap_latent_space.png
@@ -148,8 +42,8 @@ Saved UMAP projection to results/umap_latent_space.png
 SYNTHETIC PHASE 2: LDM Training on z_macro
 ====================================================================
 --- Phase 3: Training Latent Diffusion Model on z_macro ---
-Epoch 1/20, LDM Train Loss: 1.0312, Val Loss: 1.0005
-Epoch 10/20, LDM Train Loss: 0.6956, Val Loss: 0.6646
-Epoch 20/20, LDM Train Loss: 0.3352, Val Loss: 0.3366
+Epoch 1/1, LDM Train Loss: 1.0319, Val Loss: 1.0379
 LDM Training Complete.
-LDM checkpoint saved to results-synthetic\ldm.pth
+LDM checkpoint saved to results-synthetic/ldm.pth
+
+=== STEP 3.5 OUTPUT ===

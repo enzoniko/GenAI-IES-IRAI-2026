@@ -198,6 +198,11 @@
 - LabelConditionedDDPM: 181,824 params (=181,568 + 256 class_embedding), 50 epochs same setup
   - Epoch 1 loss=1.0399, Epoch 50 loss=0.1244, drop=88.0% (>30% threshold met)
   - Checkpoint: results/baseline_label.pth (716 KB)
+
+## [2026-04-21] Synthetic guidance wiring
+- Wired `run_guided_sdedit_synthetic()` into `run_synthetic_pipeline()` as Step 3.5 between LDM and fairness.
+- Added `--skip_guidance` CLI flag and threaded it through the pipeline so guidance can be skipped cleanly while fairness still runs.
+- Verification: `python main_synthetic.py --skip_guidance --pinn_epochs 1 --tsjepa_epochs 1 --ldm_epochs 1 2>&1 | grep -c "Guided SDEdit"` returned `0`.
   - Sampling: 40 samples (10 per class), DDIM-style, all finite
 - Same hyperparams as T12 (epochs=50, lr=1e-3, Adam, batch_size=32) for fair comparison
 - z_macro collapse confirmed: all 4 classes have nearly identical embeddings (range [-2.69, 2.37], std~1.01)
@@ -241,7 +246,7 @@
 - Full inference pipeline ran successfully: TS-JEPA.get_z_macro() -> Decoder1 -> Decoder2CVAE.sample()
 - envelope_RMSE: cls0=0.0249, cls1=0.0631, cls2=0.0546, cls3=0.1218 (normalized units)
 - full_RMSE (D1+D2): cls0=0.0259, cls1=0.0635, cls2=0.0550, cls3=0.1219
-- Improvement %: all classes show slight *negative* improvement (~0-4%) — CVAE jitter adds stochastic variation, not RMSE reduction; this is expected (CVAE is distribution-matching, not residual fitting)
+- Improvement %: all classes show slight *negative* improvement (~0-4%) ï¿½ CVAE jitter adds stochastic variation, not RMSE reduction; this is expected (CVAE is distribution-matching, not residual fitting)
 - val_ELBO = 0.0066 (from T13 evidence), Silhouette_pca50 = 0.0789 (from T10)
 - Twin plot left panel: used results-synthetic/umap_latent_space.png (T8 artifact)
 - All 4 outputs created: task-14-phase1-metrics.txt, task-14-reconstruction-overlay.png, task-14-twin-plot-preview.png, assets/fig_phase1_validation.pdf
@@ -279,3 +284,8 @@
 - Scratch: Silhouette_pca50=0.029812, kNN_pca50=0.665071
 - 16Hz baseline: Silhouette_pca50=0.0789, kNN_pca50=0.7783
 - Winner: scratch, conclusion: native-speed fine-tuning did not beat the 16Hz baseline; both 24.4 Hz runs underperformed it.
+
+## [2026-04-29] Synthetic validation figure regen
+- `assets/generate_synth_validation_figure.py` now loads `data/processed-synthetic/Y_healthy_testset.pth` and `Y_stiffness_reduction_testset.pth` directly, matching the synthetic-data validation workflow.
+- LSP diagnostics were clean after adding a spec loader assert and suppressing false-positive missing-import warnings for the script-only environment.
+- Regenerated `assets/synth_validation_overview.png` successfully; output is 1791x816 and wider than tall.

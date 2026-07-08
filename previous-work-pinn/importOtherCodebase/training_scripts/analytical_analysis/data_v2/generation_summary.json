@@ -1,0 +1,27 @@
+{
+  "total_configurations": 100,
+  "successful_simulations": 100,
+  "failed_simulations": 0,
+  "timeout_simulations": 0,
+  "success_rate": 1.0,
+  "conservativeness_level": "random",
+  "time_revolutions": 100,
+  "generation_timestamp": "2025-08-15T10:38:40.754515",
+  "output_directory": "E:\\desktop\\Desktop\\TCC\\hybrid_pinns\\josafat\\training_scripts\\analytical_analysis\\data_v2",
+  "base_parameters": {
+    "M1": 15.0,
+    "M2": 1.0,
+    "M3": 1.0,
+    "Ks1": 1200000.0,
+    "Ks2": 1200000.0,
+    "Ds1": 100.0,
+    "Ds2": 100.0,
+    "Kb": 5000000.0,
+    "Db": 700.0,
+    "Kb_nl": 5000000000.0,
+    "mu_eps": 5e-05,
+    "c": 0.0001,
+    "g": 9.81,
+    "Omega": 800.0
+  }
+}

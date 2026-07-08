@@ -1,4 +1,4 @@
-=== Fairness Report — 2026-04-17T17:38:34.299137 ===
+=== Fairness Report — 2026-04-24T13:35:41.082247 ===
 
 Method : TSTR in TS-JEPA latent space
          Oracle  = 5-fold CV on real oscillator z_macro
@@ -9,20 +9,20 @@ Real samples   : 160
 Generated      : 200  (LDM, 100 denoising steps)
 Classes        : 4
 
-Oracle accuracy (5-fold CV) : 0.9938  +/- 0.0125
+Oracle accuracy (5-fold CV) : 0.9625  +/- 0.0125
 TSTR accuracy              : 0.2500
-Ratio (TSTR / oracle)      : 0.2516
+Ratio (TSTR / oracle)      : 0.2597
 Acceptable range           : 0.30 – 0.95
-Assessment                 : WARN (outside range: ratio=0.2516)
+Assessment                 : WARN (outside range: ratio=0.2597)
 
-Pseudo-label distribution  : {0: 30, 1: 96, 2: 65, 3: 9}
+Pseudo-label distribution  : {0: 12, 1: 120, 2: 64, 3: 4}
 
 
 --- Fairness Evaluation ---
   Real data: 160 samples, 4 classes
-  Oracle accuracy (5-fold CV): 0.9938 +/- 0.0125
+  Oracle accuracy (5-fold CV): 0.9625 +/- 0.0125
   Sampling 200 latents from LDM (100 steps)...
-  Pseudo-label distribution: {0: 30, 1: 96, 2: 65, 3: 9}
+  Pseudo-label distribution: {0: 12, 1: 120, 2: 64, 3: 4}
   TSTR accuracy (generated -> real): 0.2500
-  Ratio (TSTR/oracle): 0.2516  [acceptable: 0.30–0.95]
-  Assessment: WARN (outside range: ratio=0.2516)
+  Ratio (TSTR/oracle): 0.2597  [acceptable: 0.30–0.95]
+  Assessment: WARN (outside range: ratio=0.2597)

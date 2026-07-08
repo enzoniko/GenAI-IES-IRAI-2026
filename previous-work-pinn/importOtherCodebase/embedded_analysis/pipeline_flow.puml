@@ -1,0 +1,55 @@
+@startuml
+!theme plain
+skinparam rectangleStyle uml2
+skinparam defaultFontName Arial
+skinparam ArrowColor #505050
+skinparam rectangle {
+    BorderColor #505050
+    BackgroundColor #F8F8F8
+}
+
+title Detection Pipeline Flow (PCA Always Applied)
+
+start
+
+:Input Time Series Data
+(e.g., sensor readings state[t]);
+
+partition "DetectionPipeline" {
+    partition "PhysicsInformedModel (pinn)" {
+        :Normalize Input State;
+        :Predict Accelerations (acc_network, normalized);
+        :Predict Physics Terms (phys_network);
+        :Calculate Physics Residuals[t]\n(denormalizes acc internally);
+    }
+
+    :Residual Time Series
+residuals[t];
+
+    partition "EVTAnomalyDetector (detector)" {
+        partition "FeatureExtractor" {
+            :Extract Time Features;
+            :Extract Fourier Features (FFT);
+            :Extract Wavelet Features (Wavelet Lib);
+        }
+        :Combined Features Vector;
+        partition "StandardScaler" {
+            :Scale Features;
+        }
+        :Scaled Features Vector;
+        partition "PCA" {
+            :Project Scaled Features;
+        }
+        :PCA-Projected Vector;
+        :Calculate Norm (Anomaly Score);
+        :Anomaly Score;
+        :Compare Score > Threshold;
+    }
+    :Anomaly Decision (True/False);
+}
+
+:Output Result
+(Anomaly/Normal);
+
+stop
+@enduml 
