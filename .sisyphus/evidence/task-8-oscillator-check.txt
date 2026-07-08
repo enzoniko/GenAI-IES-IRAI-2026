@@ -1,5 +1,5 @@
 paper_synthetic_oscillator.py – oscillator check
-Generated at: 2026-04-17T17:37:46.690065
+Generated at: 2026-04-24T13:35:17.808076
 
 ODE:  m*x'' + c*x' + k*x = A*sin(ω₀*t)
 Healthy params: m=1, c=0.5, k=4.0, A=1.0, ω₀=1.0

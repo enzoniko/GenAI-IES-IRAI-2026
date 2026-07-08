@@ -37,3 +37,6 @@
 - Updated the hardcoded metadata label_strategy in clean_mafaulda_processor.py to mafaulda_reduced_4 so future processor metadata aligns with the reduced 4-class dataset.
 
 - 2026-04-17 F1 audit scope decision: exclude LaTeX completeness/compilation and bibliography from compliance counts; assess deliverables using checkpoints, figures, evidence files, and actual artifact-generation scripts.
+
+## [2026-04-29] Synthetic validation figure regen
+- Keep the validation figure script hard-wired to the synthetic `.pth` tensors for this artifact, since the goal is to verify the synthetic pipeline and not MaFaulDa.

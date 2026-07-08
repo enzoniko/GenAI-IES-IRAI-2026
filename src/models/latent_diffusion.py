@@ -1,6 +1,13 @@
+"""Latent DDPM denoiser + scheduler + proper DDIM sampler (library code —
+DDIM previously existed only ad hoc inside legacy task scripts).
+Optional class conditioning (FiLM on the time embedding) for experiment E2."""
+from __future__ import annotations
+
+import math
+
 import torch
 import torch.nn as nn
-import math
+
 
 class SinusoidalPositionEmbeddings(nn.Module):
     def __init__(self, dim):
@@ -8,98 +15,96 @@ class SinusoidalPositionEmbeddings(nn.Module):
         self.dim = dim
 
     def forward(self, time):
-        device = time.device
-        half_dim = self.dim // 2
-        embeddings = math.log(10000) / (half_dim - 1)
-        embeddings = torch.exp(torch.arange(half_dim, device=device) * -embeddings)
-        embeddings = time[:, None] * embeddings[None, :]
-        embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
-        return embeddings
+        half = self.dim // 2
+        emb = math.log(10000) / (half - 1)
+        emb = torch.exp(torch.arange(half, device=time.device) * -emb)
+        emb = time[:, None].float() * emb[None, :]
+        return torch.cat((emb.sin(), emb.cos()), dim=-1)
+
 
 class LatentDiffusionMLP(nn.Module):
-    def __init__(self, z_dim=128, time_dim=64):
+    def __init__(self, z_dim=128, time_dim=64, hidden=256, num_classes: int | None = None):
         super().__init__()
-        
         self.time_mlp = nn.Sequential(
             SinusoidalPositionEmbeddings(time_dim),
-            nn.Linear(time_dim, time_dim * 2),
-            nn.GELU(),
-            nn.Linear(time_dim * 2, time_dim)
+            nn.Linear(time_dim, time_dim * 2), nn.GELU(),
+            nn.Linear(time_dim * 2, time_dim),
         )
-        
-        # A simple series of ResNet-like MLP blocks
-        self.fc1 = nn.Linear(z_dim, 256)
-        self.fc_time1 = nn.Linear(time_dim, 256)
-        
-        self.fc2 = nn.Linear(256, 256)
-        self.fc_time2 = nn.Linear(time_dim, 256)
-        
-        self.fc3 = nn.Linear(256, z_dim)
-        
+        self.class_embed = nn.Embedding(num_classes, time_dim) if num_classes else None
+        self.fc1 = nn.Linear(z_dim, hidden)
+        self.fc_time1 = nn.Linear(time_dim, hidden)
+        self.fc2 = nn.Linear(hidden, hidden)
+        self.fc_time2 = nn.Linear(time_dim, hidden)
+        self.fc3 = nn.Linear(hidden, z_dim)
         self.act = nn.SiLU()
 
-    def forward(self, x, time):
-        # x is (Batch, 128)
-        # time is (Batch,)
-        
+    def forward(self, x, time, label: torch.Tensor | None = None):
         t = self.time_mlp(time)
-        
-        h = self.fc1(x) + self.fc_time1(t)
-        h = self.act(h)
-        
-        # Residual-like jump
-        h2 = self.fc2(h) + self.fc_time2(t)
-        h2 = self.act(h2) + h
-        
-        out = self.fc3(h2)
-        return out
+        if self.class_embed is not None and label is not None:
+            t = t + self.class_embed(label)
+        h = self.act(self.fc1(x) + self.fc_time1(t))
+        h2 = self.act(self.fc2(h) + self.fc_time2(t)) + h
+        return self.fc3(h2)
+
 
 class DDPMScheduler:
-    def __init__(self, num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, device="cpu"):
+    def __init__(self, num_train_timesteps=1000, beta_start=1e-4, beta_end=0.02,
+                 device: torch.device | str = "cpu"):
         self.num_train_timesteps = num_train_timesteps
-        self.device = device
-        
-        # Linear schedule
-        self.betas = torch.linspace(beta_start, beta_end, num_train_timesteps).to(device)
+        self.betas = torch.linspace(beta_start, beta_end, num_train_timesteps, device=device)
         self.alphas = 1.0 - self.betas
         self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
-        self.alphas_cumprod_prev = torch.cat([torch.tensor([1.0]).to(device), self.alphas_cumprod[:-1]])
-        
-        # Calculations for forward and reverse process
         self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
         self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
-        
-        self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
-        self.posterior_variance = self.betas * (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod)
 
-    def add_noise(self, original_samples, noise, timesteps):
-        """Forward diffusion process"""
-        sqrt_alpha_prod = self.sqrt_alphas_cumprod[timesteps].view(-1, 1)
-        sqrt_one_minus_alpha_prod = self.sqrt_one_minus_alphas_cumprod[timesteps].view(-1, 1)
-        
-        noisy_samples = sqrt_alpha_prod * original_samples + sqrt_one_minus_alpha_prod * noise
-        return noisy_samples
+    def to(self, device):
+        for k, v in self.__dict__.items():
+            if isinstance(v, torch.Tensor):
+                setattr(self, k, v.to(device))
+        return self
 
-    def step(self, model_output, timestep, sample):
-        """Reverse diffusion discrete step"""
-        t = timestep
-        
-        # 1. compute alphas
-        alpha_t = self.alphas[t]
-        alpha_t_cumprod = self.alphas_cumprod[t]
-        
-        # 2. compute predicted original sample from predicted noise (also called x_0)
-        sqrt_one_minus_alpha_cumprod_t = self.sqrt_one_minus_alphas_cumprod[t]
-        
-        # 3. compute derivative term (the mean)
-        pred_mean = (sample - model_output * (1 - alpha_t) / sqrt_one_minus_alpha_cumprod_t) / torch.sqrt(alpha_t)
-        
-        # 4. output
-        if t > 0:
-            noise = torch.randn_like(sample)
-            variance = self.posterior_variance[t]
-            pred_sample = pred_mean + torch.sqrt(variance) * noise
-        else:
-            pred_sample = pred_mean
-            
-        return pred_sample
+    def add_noise(self, x0, noise, timesteps):
+        a = self.sqrt_alphas_cumprod[timesteps].view(-1, 1)
+        b = self.sqrt_one_minus_alphas_cumprod[timesteps].view(-1, 1)
+        return a * x0 + b * noise
+
+
+class DDIMSampler:
+    """Deterministic DDIM (eta=0) over a subsampled schedule, x0-prediction
+    form with optional x0 clamping for stability in collapsed/low-data
+    latent spaces."""
+
+    def __init__(self, scheduler: DDPMScheduler, x0_clamp: float | None = 4.0):
+        self.s = scheduler
+        self.x0_clamp = x0_clamp
+
+    def schedule(self, t_start: int, n_steps: int) -> list[int]:
+        """Descending timesteps from t_start-1 to 0, n_steps values."""
+        n = min(n_steps, t_start)
+        ts = torch.linspace(t_start - 1, 0, n).round().long()
+        return torch.unique(ts, sorted=True).flip(0).tolist()
+
+    def predict_x0(self, z_t, eps_pred, t: int):
+        x0 = (z_t - self.s.sqrt_one_minus_alphas_cumprod[t] * eps_pred) \
+             / self.s.sqrt_alphas_cumprod[t]
+        if self.x0_clamp is not None:
+            x0 = x0.clamp(-self.x0_clamp, self.x0_clamp)
+        return x0
+
+    def step(self, z_t, eps_pred, t: int, t_prev: int):
+        x0 = self.predict_x0(z_t, eps_pred, t)
+        if t_prev < 0:
+            return x0
+        return self.s.sqrt_alphas_cumprod[t_prev] * x0 \
+            + self.s.sqrt_one_minus_alphas_cumprod[t_prev] * eps_pred
+
+    @torch.no_grad()
+    def sample(self, model, n: int, z_dim: int, device, n_steps: int = 50,
+               label: torch.Tensor | None = None):
+        z = torch.randn(n, z_dim, device=device)
+        ts = self.schedule(self.s.num_train_timesteps, n_steps)
+        for i, t in enumerate(ts):
+            t_prev = ts[i + 1] if i + 1 < len(ts) else -1
+            eps = model(z, torch.full((n,), t, device=device, dtype=torch.long), label)
+            z = self.step(z, eps, t, t_prev)
+        return z

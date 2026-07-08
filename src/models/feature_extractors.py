@@ -27,19 +27,19 @@ class MathFeatureExtractor(nn.Module):
     The output is the pure mathematically calculated features, meaning NO learnable parameters
     are involved, fully satisfying analytical traceability constraints.
     """
-    def __init__(self, in_channels=8):
+    def __init__(self, in_channels=8, fft_bins=256, wavelet_levels=4):
         super().__init__()
         self.in_channels = in_channels
-        
+
         # Define the exact number of features we extract mathematically.
         # Time-domain: mean, std, rms, peak, crest, skewness, kurtosis, shape_factor, impulse_factor
         self.num_stat_features = 9
-        
-        # Frequency-domain: Adaptive pooling enforces 256 frequency bins regardless of input signal length
-        self.num_freq_bins = 256
-        
-        # Wavelet-domain: 4-level Haar DWT (Detail levels 1-4 + final approximation = 5 bands)
-        self.num_wavelet_levels = 4
+
+        # Frequency-domain: adaptive pooling enforces a fixed bin count regardless of input length
+        self.num_freq_bins = fft_bins
+
+        # Wavelet-domain: L-level Haar DWT (detail levels 1..L + final approximation)
+        self.num_wavelet_levels = wavelet_levels
         self.num_wavelet_features_per_band = 3 # Mean, Std, RMS
         self.num_wavelet_features = (self.num_wavelet_levels + 1) * self.num_wavelet_features_per_band
         

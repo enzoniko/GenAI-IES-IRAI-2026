@@ -1,0 +1,24 @@
+{
+  "data_driven_standard": {
+    "f1_score": 0,
+    "accuracy": 0,
+    "precision": 0,
+    "recall": 0,
+    "auc": 0,
+    "optimization_time_seconds": 0,
+    "num_conditions": 0,
+    "total_samples": 0,
+    "error": "Failed to load pre-computed data-driven residuals: Pre-computed residuals not found: siamese_analysis_v3/data/residuals_data_driven_standard.pth"
+  },
+  "data_driven_reg": {
+    "f1_score": 0,
+    "accuracy": 0,
+    "precision": 0,
+    "recall": 0,
+    "auc": 0,
+    "optimization_time_seconds": 0,
+    "num_conditions": 0,
+    "total_samples": 0,
+    "error": "Failed to load pre-computed data-driven residuals: Pre-computed residuals not found: siamese_analysis_v3/data/residuals_data_driven_reg.pth"
+  }
+}

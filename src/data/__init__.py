@@ -1,6 +1,8 @@
-# src/data/__init__.py
+from .contract import Batch, DatasetBundle, WindowDataset, collate, make_loader
+from .kinematics import derive_kinematics
+from .registry import get_dataset
 
-# Uncomment to change between data sources
-
-# from .synthetic_dataset import get_dataloaders
-from .mafaulda_dataset import get_dataloaders
+__all__ = [
+    "Batch", "DatasetBundle", "WindowDataset", "collate", "make_loader",
+    "derive_kinematics", "get_dataset",
+]

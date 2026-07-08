@@ -1,0 +1,58 @@
+@startuml
+!theme plain
+skinparam sequence {
+    ArrowColor #505050
+    LifeLineBorderColor #505050
+    LifeLineBackgroundColor #F8F8F8
+    ParticipantBorderColor #505050
+    ParticipantBackgroundColor #F8F8F8
+    ActorBorderColor #505050
+    ActorBackgroundColor #F8F8F8
+}
+skinparam defaultFontName Arial
+
+title Sequence Diagram for detectAnomaly
+
+participant Main
+participant ":DetectionPipeline" as Pipeline
+participant "pinn:PhysicsInformedModel" as PINN
+participant "detector:EVTAnomalyDetector" as Detector
+participant ":FeatureExtractor" as FE
+participant ":StandardScaler" as Scaler
+participant ":PCA" as PCAComp
+
+Main -> Pipeline : detectAnomaly(time_series)
+activate Pipeline
+
+Pipeline -> PINN : processTimeSeries(time_series)
+activate PINN
+PINN --> Pipeline : residuals
+deactivate PINN
+
+Pipeline -> Detector : detectAnomaly(residuals)
+activate Detector
+
+Detector -> FE : extractFeatures(residuals)
+activate FE
+FE --> Detector : features
+deactivate FE
+
+Detector -> Scaler : transform(features)
+activate Scaler
+Scaler --> Detector : scaled_features
+deactivate Scaler
+
+Detector -> PCAComp : calculateAnomalyScore(scaled_features)
+activate PCAComp
+PCAComp -> PCAComp : transform(scaled_features)
+PCAComp --> Detector : score (norm)
+deactivate PCAComp
+
+Detector -> Detector : compare score > threshold
+Detector --> Pipeline : is_anomaly (bool)
+deactivate Detector
+
+Pipeline --> Main : is_anomaly
+deactivate Pipeline
+
+@enduml 

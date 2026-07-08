@@ -1,0 +1,98 @@
+@startuml
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam ArrowColor #505050
+skinparam class {
+    BorderColor #505050
+    BackgroundColor #F8F8F8
+}
+
+title Simplified Class Diagram
+
+class DetectionPipeline {
+  - pinn : PhysicsInformedModel
+  - detector : EVTAnomalyDetector
+  + initialize()
+  + generateDummyData()
+  + detectAnomaly(time_series) : bool
+  + getExecutionTimeMs() : double
+}
+
+class PhysicsInformedModel {
+  - acc_network : NeuralNetwork
+  - phys_network : NeuralNetwork
+  - min_vals, scale_vals
+  - acc_min, acc_scale
+  + loadWeights()
+  + normalize(x)
+  + denormalizeAccelerations(x_norm)
+  + calculateResiduals(state, accelerations)
+  + processTimeStep(state)
+  + processTimeSeries(time_series)
+}
+
+class EVTAnomalyDetector {
+  - threshold : double
+  - feature_extractor : FeatureExtractor
+  - feature_scaler : StandardScaler
+  - pca : PCA
+  + EVTAnomalyDetector()
+  + loadParameters()
+  + fit(normal_samples)
+  + detectAnomaly(residuals) : bool
+}
+
+class FeatureExtractor {
+  + extractFeatures(residuals)
+  - extractTimeDomainFeatures(data)
+  - extractFourierFeatures(data)
+  - extractWaveletFeatures(data)
+}
+
+class StandardScaler {
+  - mean_, scale_
+  + fit(data)
+  + transform(sample)
+  + fit_transform(data)
+}
+
+class PCA {
+  - components
+  - mean
+  - n_components_
+  + loadParameters()
+  + transform(x)
+  + calculateAnomalyScore(x) : double
+}
+
+class NeuralNetwork {
+  - W1, b1, W2, b2
+  + loadWeights()
+  + forward(x)
+}
+
+package wavelet <<Folder>> {
+    class Wavelet {
+        + Wavedec(data, level) : Decomposition1D
+    }
+    class Decomposition1D {
+       + GetAppcoef()
+       + GetDetcoef(level)
+    }
+}
+
+
+DetectionPipeline o-- PhysicsInformedModel
+DetectionPipeline o-- EVTAnomalyDetector
+
+PhysicsInformedModel o-- NeuralNetwork
+
+EVTAnomalyDetector o-- FeatureExtractor
+EVTAnomalyDetector o-- StandardScaler
+EVTAnomalyDetector o-- PCA
+
+FeatureExtractor ..> Wavelet : uses
+FeatureExtractor ..> Decomposition1D : uses
+
+@enduml 

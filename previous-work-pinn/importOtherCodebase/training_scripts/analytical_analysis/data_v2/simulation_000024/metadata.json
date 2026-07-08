@@ -1,0 +1,52 @@
+{
+  "config_id": 24,
+  "success": true,
+  "timestamp": "2025-08-15T10:38:19.321589",
+  "parameters": {
+    "M1": 21.717414948946267,
+    "M2": 2.075912568768474,
+    "M3": 1.7752979923413061,
+    "Ks1": 3320655.1321645402,
+    "Ks2": 3277742.632768206,
+    "Ds1": 255.93524578509812,
+    "Ds2": 77.0316712190175,
+    "Kb": 7109578.427726204,
+    "Db": 1519.6413170578144,
+    "Kb_nl": 1204369833.4160728,
+    "mu_eps": 0.0009641247525256883,
+    "c": 0.0002470571645324066,
+    "g": 9.81,
+    "Omega": 653.4118510324472
+  },
+  "pinn_parameters": {
+    "M1": 21.717414948946267,
+    "M2": 2.075912568768474,
+    "M3": 1.7752979923413061,
+    "K1": 10430233.559890743,
+    "K2": 10387321.06049441,
+    "D1": 255.93524578509812,
+    "D2": 77.0316712190175,
+    "D3": 1519.6413170578144,
+    "E1": 4.43940844153032e-05,
+    "Omega": 653.4118510324472,
+    "g": 9.81
+  },
+  "omega_rad_s": 653.4118510324472,
+  "simulation_info": {
+    "total_time": 1.0000603308834504,
+    "time_points": 20072,
+    "sampling_rate": 20070.789111561353
+  },
+  "parameter_mapping_info": {
+    "description": "Synthetic data parameters mapped to PINN model parameters",
+    "mapping_rationale": {
+      "M1, M2, M3": "Direct mass mapping",
+      "K1": "Ks1 + Kb (shaft 1 + bearing stiffness)",
+      "K2": "Ks2 + Kb (shaft 2 + bearing stiffness)",
+      "D1": "Ds1 (shaft 1 damping)",
+      "D2": "Ds2 (shaft 2 damping)",
+      "D3": "Db (bearing damping)",
+      "E1": "mu_eps / M1 (eccentricity from unbalance)"
+    }
+  }
+}

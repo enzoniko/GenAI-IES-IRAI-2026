@@ -68,3 +68,8 @@ logs/
 *.bak
 omo.txt
 OMO/
+# Extension: all checkpoints/results/processed data regenerable
+*.pth
+results*/
+data/processed-*/
+report/

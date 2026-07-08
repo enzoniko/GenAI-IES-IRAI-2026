@@ -1,127 +1,127 @@
-Device: cuda
+Device: cpu
 
 === Loading normalization metadata ===
 y_min: [-773.6566162109375, -884.2754516601562, -616.0032958984375, -283.4148254394531]
 y_max: [783.919921875, 1028.5062255859375, 514.017333984375, 240.1143341064453]
 
 === Loading frozen TS-JEPA ===
-TS-JEPA loaded: 5,956,096 params, all frozen
+TS-JEPA loaded: 5,943,296 params, all frozen
 
 === Encoding training data to z_macro (offline) ===
   Y_normal_trainingset.pth: shape=(72, 3014, 4), label=0
-    z_macro: shape=(72, 128), min=-2.6933, max=2.3710, all_finite=True
+    z_macro: shape=(72, 128), min=-2.8498, max=2.9218, all_finite=True
   Y_imbalance_fault_20g_trainingset.pth: shape=(72, 3014, 4), label=1
-    z_macro: shape=(72, 128), min=-2.6934, max=2.3711, all_finite=True
+    z_macro: shape=(72, 128), min=-2.8501, max=2.9237, all_finite=True
   Y_vertical_misalignment_fault_1.27mm_trainingset.pth: shape=(68, 3014, 4), label=2
-    z_macro: shape=(68, 128), min=-2.6933, max=2.3710, all_finite=True
+    z_macro: shape=(68, 128), min=-2.8502, max=2.9222, all_finite=True
   Y_overhang_ball_fault_20g_trainingset.pth: shape=(72, 3014, 4), label=3
-    z_macro: shape=(72, 128), min=-2.6933, max=2.3711, all_finite=True
+    z_macro: shape=(72, 128), min=-2.8523, max=2.9220, all_finite=True
 
 Total z_macro dataset: torch.Size([284, 128]), labels: torch.Size([284])
-z_macro global: mean=-0.0005, std=1.0151
-z_macro range:  min=-2.6934,  max=2.3711
+z_macro global: mean=-0.0037, std=1.0344
+z_macro range:  min=-2.8523,  max=2.9237
 
 === SMOKE TEST: 3 epochs ===
-  Smoke epoch 1/3: loss=1.007284
-  Smoke epoch 2/3: loss=0.960262
-  Smoke epoch 3/3: loss=0.879503
+  Smoke epoch 1/3: loss=1.003161
+  Smoke epoch 2/3: loss=0.950365
+  Smoke epoch 3/3: loss=0.875487
 Smoke test: shapes OK, losses finite=True
 Smoke sample shape: torch.Size([4, 128]), all finite: True
 SMOKE TEST PASSED
 
 === FULL LDM TRAINING: 50 epochs, lr=0.001 ===
-  Epoch   1/50 | loss=1.013033 | elapsed=0.0s
-  Epoch   5/50 | loss=0.763920 | elapsed=0.2s
-  Epoch  10/50 | loss=0.422330 | elapsed=0.4s
-  Epoch  15/50 | loss=0.268934 | elapsed=0.5s
-  Epoch  20/50 | loss=0.228029 | elapsed=0.7s
-  Epoch  25/50 | loss=0.157585 | elapsed=0.9s
-  Epoch  30/50 | loss=0.148306 | elapsed=1.0s
-  Epoch  35/50 | loss=0.139643 | elapsed=1.2s
-  Epoch  40/50 | loss=0.123029 | elapsed=1.4s
-  Epoch  45/50 | loss=0.127860 | elapsed=1.5s
-  Epoch  50/50 | loss=0.109486 | elapsed=1.7s
+  Epoch   1/50 | loss=1.009601 | elapsed=0.0s
+  Epoch   5/50 | loss=0.750749 | elapsed=0.1s
+  Epoch  10/50 | loss=0.413175 | elapsed=0.2s
+  Epoch  15/50 | loss=0.306687 | elapsed=0.3s
+  Epoch  20/50 | loss=0.192480 | elapsed=0.4s
+  Epoch  25/50 | loss=0.167150 | elapsed=16.2s
+  Epoch  30/50 | loss=0.143159 | elapsed=41.4s
+  Epoch  35/50 | loss=0.142921 | elapsed=45.1s
+  Epoch  40/50 | loss=0.139244 | elapsed=45.2s
+  Epoch  45/50 | loss=0.120447 | elapsed=48.3s
+  Epoch  50/50 | loss=0.126750 | elapsed=90.2s
 
-Training complete. Loss: epoch1=1.013033 -> final=0.109486 (89.2% drop)
-[OK] Loss decrease criterion met: 89.2% >= 30%
+Training complete. Loss: epoch1=1.009601 -> final=0.126750 (87.4% drop)
+[OK] Loss decrease criterion met: 87.4% >= 30%
 
 Checkpoint saved: results/ldm.pth
 
 === Generating 100 unconditional z_macro samples ===
 Running reverse diffusion (subsampled, x0-prediction)... this may take a moment.
-Generation done in 0.3s
+Generation done in 2.1s
 
 Distribution comparison (global scalar stats):
-  Real z_macro:  mean=-0.0005, std=1.0151
-  Gen  z_macro:  mean=0.0637,  std=3.4569
-  Real global:   min=-2.6934, max=2.3711
+  Real z_macro:  mean=-0.0037, std=1.0344
+  Gen  z_macro:  mean=-0.1395,  std=3.4478
+  Real global:   min=-2.8523, max=2.9237
   Gen  global:   min=-3.5000,  max=3.5000
   Gen finite:    True
-  Std ratio (gen/real): 3.4055 (expect ~0.1-10)
+  Std ratio (gen/real): 3.3330 (expect ~0.1-10)
 [OK] Generated samples within expected distribution range
 
 === UMAP Visualization ===
 umap-learn available
 Fitting UMAP on combined real + generated z_macro...
-UMAP saved: .sisyphus/evidence\task-12-ldm-samples-umap.png
+UMAP saved: .sisyphus/evidence/task-12-ldm-samples-umap.png
 
 === Training Loss Curve ===
-  Epoch   1: 1.013033
-  Epoch   2: 0.942647
-  Epoch   3: 0.895934
-  Epoch   4: 0.824627
-  Epoch   5: 0.763920
-  Epoch   6: 0.695914
-  Epoch   7: 0.593773
-  Epoch   8: 0.516408
-  Epoch   9: 0.484148
-  Epoch  10: 0.422330
-  Epoch  11: 0.390440
-  Epoch  12: 0.352977
-  Epoch  13: 0.339222
-  Epoch  14: 0.304934
-  Epoch  15: 0.268934
-  Epoch  16: 0.273569
-  Epoch  17: 0.236322
-  Epoch  18: 0.231308
-  Epoch  19: 0.221586
-  Epoch  20: 0.228029
-  Epoch  21: 0.189624
-  Epoch  22: 0.196771
-  Epoch  23: 0.165986
-  Epoch  24: 0.176462
-  Epoch  25: 0.157585
-  Epoch  26: 0.167735
-  Epoch  27: 0.141194
-  Epoch  28: 0.118212
-  Epoch  29: 0.131343
-  Epoch  30: 0.148306
-  Epoch  31: 0.136576
-  Epoch  32: 0.157938
-  Epoch  33: 0.155792
-  Epoch  34: 0.151874
-  Epoch  35: 0.139643
-  Epoch  36: 0.127202
-  Epoch  37: 0.115943
-  Epoch  38: 0.139564
-  Epoch  39: 0.113688
-  Epoch  40: 0.123029
-  Epoch  41: 0.144120
-  Epoch  42: 0.115651
-  Epoch  43: 0.115000
-  Epoch  44: 0.121743
-  Epoch  45: 0.127860
-  Epoch  46: 0.134034
-  Epoch  47: 0.123996
-  Epoch  48: 0.120472
-  Epoch  49: 0.124516
-  Epoch  50: 0.109486
+  Epoch   1: 1.009601
+  Epoch   2: 0.932983
+  Epoch   3: 0.887361
+  Epoch   4: 0.822113
+  Epoch   5: 0.750749
+  Epoch   6: 0.653234
+  Epoch   7: 0.555460
+  Epoch   8: 0.506521
+  Epoch   9: 0.475038
+  Epoch  10: 0.413175
+  Epoch  11: 0.369621
+  Epoch  12: 0.341907
+  Epoch  13: 0.324428
+  Epoch  14: 0.327098
+  Epoch  15: 0.306687
+  Epoch  16: 0.277823
+  Epoch  17: 0.241833
+  Epoch  18: 0.251730
+  Epoch  19: 0.220166
+  Epoch  20: 0.192480
+  Epoch  21: 0.198917
+  Epoch  22: 0.180956
+  Epoch  23: 0.155538
+  Epoch  24: 0.171238
+  Epoch  25: 0.167150
+  Epoch  26: 0.155545
+  Epoch  27: 0.159557
+  Epoch  28: 0.137305
+  Epoch  29: 0.126371
+  Epoch  30: 0.143159
+  Epoch  31: 0.133715
+  Epoch  32: 0.128007
+  Epoch  33: 0.130776
+  Epoch  34: 0.125140
+  Epoch  35: 0.142921
+  Epoch  36: 0.150853
+  Epoch  37: 0.127530
+  Epoch  38: 0.109932
+  Epoch  39: 0.117597
+  Epoch  40: 0.139244
+  Epoch  41: 0.116719
+  Epoch  42: 0.114719
+  Epoch  43: 0.136835
+  Epoch  44: 0.133891
+  Epoch  45: 0.120447
+  Epoch  46: 0.154000
+  Epoch  47: 0.136581
+  Epoch  48: 0.141899
+  Epoch  49: 0.117216
+  Epoch  50: 0.126750
 
 === Summary ===
 LDM checkpoint:  results/ldm.pth
-UMAP plot:       .sisyphus/evidence\task-12-ldm-samples-umap.png
-Training log:    .sisyphus/evidence\task-12-ldm-training.txt
+UMAP plot:       .sisyphus/evidence/task-12-ldm-samples-umap.png
+Training log:    .sisyphus/evidence/task-12-ldm-training.txt
 Epochs trained:  50
-Loss drop:       89.2%
+Loss drop:       87.4%
 Samples generated: 100
 All checks PASSED
