@@ -114,6 +114,7 @@ def train_all(cfg):
     train_ldm(cfg, bundle)
 
 
+<<<<<<< HEAD
 def full_run(cfg, resume: bool = True):
     """Everything, in order, with stage-level progress + ETA in
     results/<experiment>/PROGRESS.md. `resume=True` skips training stages
@@ -212,6 +213,8 @@ def full_run(cfg, resume: bool = True):
     print(f"FULL-RUN COMPLETE - see report/REPORT.md and {prog_path}", flush=True)
 
 
+=======
+>>>>>>> 402ec57b6d9bb0588135a73b98da6f5e885b7903
 def report(cfg):
     """P5.1 aggregator: read manifests + cells, refuse bypass in headlines."""
     import pandas as pd
@@ -295,8 +298,11 @@ def main():
             print(f"=== block {blk} ===")
             getattr(ex, f"run_block_{blk}")(cfg)
         print("SMOKE-ALL COMPLETE")
+<<<<<<< HEAD
     elif cmd == "full-run":
         full_run(cfg)
+=======
+>>>>>>> 402ec57b6d9bb0588135a73b98da6f5e885b7903
     elif cmd == "report":
         report(cfg)
     else:
