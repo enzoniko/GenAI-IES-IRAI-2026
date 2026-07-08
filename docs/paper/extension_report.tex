@@ -1,0 +1,507 @@
+% =====================================================================
+%  EXTENSION REPORT — self-contained (pdflatex -> bibtex -> pdflatex x2)
+%  Geometric Compatibility in Density-Guided Fault Synthesis:
+%  the mafaulda_synthetic instrument, the rebuilt pipeline, and the
+%  pre-registered validation status toward the journal paper.
+% =====================================================================
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=blue,urlcolor=blue]{hyperref}
+
+\newcommand{\z}{\mathbf{z}}
+\newcommand{\x}{\mathbf{x}}
+\newcommand{\bv}{\mathbf{v}}
+\newcommand{\Feat}{\Phi}
+\newcommand{\PINN}{f_{\mathrm{PINN}}}
+\newcommand{\Gng}{\mathcal{G}}
+\newcommand{\pending}[1]{\textcolor{purple}{\textbf{[PENDING full run:} #1\textbf{]}}}
+\newcommand{\measured}[1]{\textcolor{teal}{#1}}
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+\begin{filecontents*}{extension_report.bib}
+@article{spotorno2026linking,
+  title={Linking Physical Fidelity to Downstream Performance in Physics-Informed Fault Diagnosis},
+  author={Spotorno, Enzo Nicol{\'a}s and Leal Filho, Josafat and Fr{\"o}hlich, Ant{\^o}nio Augusto},
+  journal={IEEE Access}, year={2026}, note={To appear}}
+@inproceedings{spotorno2026synthesis,
+  title={Towards Physics-Guided Counterfactual Fault Synthesis in {CPS} Using Latent Diffusion and Physics-Informed Embeddings Guidance},
+  author={Spotorno, Enzo Nicol{\'a}s and D'Angelo, Gustavo R A and Leal, Josafat Ribeiro},
+  booktitle={IEEE IES Generative AI Hackathon (Conference Track)}, year={2026},
+  note={Withdrawn}}
+@inproceedings{meng2022sdedit,
+  title={{SDEdit}: Guided Image Synthesis and Editing with Stochastic Differential Equations},
+  author={Meng, Chenlin and He, Yutong and Song, Yang and Song, Jiaming and Wu, Jiajun and Zhu, Jun-Yan and Ermon, Stefano},
+  booktitle={ICLR}, year={2022}}
+@inproceedings{ho2020denoising,
+  title={Denoising Diffusion Probabilistic Models},
+  author={Ho, Jonathan and Jain, Ajay and Abbeel, Pieter},
+  booktitle={NeurIPS}, year={2020}}
+@inproceedings{song2021ddim,
+  title={Denoising Diffusion Implicit Models},
+  author={Song, Jiaming and Meng, Chenlin and Ermon, Stefano},
+  booktitle={ICLR}, year={2021}}
+@article{ledoit2004well,
+  title={A Well-Conditioned Estimator for Large-Dimensional Covariance Matrices},
+  author={Ledoit, Olivier and Wolf, Michael},
+  journal={Journal of Multivariate Analysis}, volume={88}, number={2}, pages={365--411}, year={2004}}
+@article{gretton2012kernel,
+  title={A Kernel Two-Sample Test},
+  author={Gretton, Arthur and Borgwardt, Karsten M and Rasch, Malte J and Sch{\"o}lkopf, Bernhard and Smola, Alexander},
+  journal={JMLR}, volume={13}, pages={723--773}, year={2012}}
+@article{balestriero2025lejepa,
+  title={{LeJEPA}: Provable and Scalable Self-Supervised Learning Without the Heuristics},
+  author={Balestriero, Randall and LeCun, Yann},
+  journal={arXiv:2511.08544}, year={2025}}
+@article{xu2025faultdiffusion,
+  title={{FaultDiffusion}: Few-Shot Fault Time Series Generation with Diffusion Model},
+  author={Xu, Chen and Wang, Li and Tang, Zhao and Liu, Yang},
+  journal={arXiv:2511.15174}, year={2025}}
+@inproceedings{sohn2015cvae,
+  title={Learning Structured Output Representation using Deep Conditional Generative Models},
+  author={Sohn, Kihyuk and Lee, Honglak and Yan, Xinchen},
+  booktitle={NeurIPS}, year={2015}}
+@inproceedings{belghazi2018mine,
+  title={Mutual Information Neural Estimation},
+  author={Belghazi, Mohamed Ishmael and Baratin, Aristide and Rajeswar, Sai and Ozair, Sherjil and Bengio, Yoshua and Courville, Aaron and Hjelm, Devon},
+  booktitle={ICML}, year={2018}}
+@inproceedings{chen2018isolating,
+  title={Isolating Sources of Disentanglement in Variational Autoencoders},
+  author={Chen, Ricky T. Q. and Li, Xuechen and Grosse, Roger and Duvenaud, David},
+  booktitle={NeurIPS}, year={2018}}
+@article{henze1990class,
+  title={A Class of Invariant Consistent Tests for Multivariate Normality},
+  author={Henze, Norbert and Zirkler, Bernd},
+  journal={Communications in Statistics -- Theory and Methods}, volume={19}, number={10},
+  pages={3595--3617}, year={1990}}
+@article{mardia1970measures,
+  title={Measures of Multivariate Skewness and Kurtosis with Applications},
+  author={Mardia, Kanti V},
+  journal={Biometrika}, volume={57}, number={3}, pages={519--530}, year={1970}}
+@article{papamakarios2021normalizing,
+  title={Normalizing Flows for Probabilistic Modeling and Inference},
+  author={Papamakarios, George and Nalisnick, Eric and Rezende, Danilo Jimenez and Mohamed, Shakir and Lakshminarayanan, Balaji},
+  journal={JMLR}, volume={22}, number={57}, pages={1--64}, year={2021}}
+@article{esteban2017real,
+  title={Real-valued (Medical) Time Series Generation with Recurrent Conditional {GANs}},
+  author={Esteban, Crist{\'o}bal and Hyland, Stephanie L and R{\"a}tsch, Gunnar},
+  journal={arXiv:1706.02633}, year={2017}}
+\end{filecontents*}
+
+\title{\textbf{Geometric Compatibility in Density-Guided Fault Synthesis:\\
+The \code{mafaulda\_synthetic} Instrument and\\ Pre-Registered Validation Status}\\[4pt]
+\large Engineering \& validation report toward the journal extension of~\cite{spotorno2026synthesis}}
+\author{Enzo Nicol\'as Spotorno \and collaborators\\
+\small Software/Hardware Integration Lab (LISHA), Federal University of Santa Catarina}
+\date{July 8, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+This report documents the complete rebuild of the physics-guided
+counterfactual fault-synthesis codebase and the experimental instrument
+constructed to test the extension hypothesis: that synthesis fidelity in
+density-guided generation is governed by the \emph{geometric compatibility}
+between a fault's cluster shape in a physics-informed embedding space and the
+distributional form assumed by the guidance density estimator, invariantly
+(to first order) across generative backbones. We describe
+(i)~\code{mafaulda\_synthetic}, a simulated rotor-bearing benchmark whose
+governing equations are shared verbatim between the data generator and the
+PINN physics loss, and whose seven classes form a \emph{geometry dial} that
+turns cluster non-Gaussianity $\Gng_y$ into a designed, controlled
+independent variable; (ii)~the corrected synthesis pipeline, including the
+specific defects of the withdrawn implementation and their fixes;
+(iii)~the six pre-registered experiment blocks and their decision rules; and
+(iv)~the validation results already in hand --- notably that the two
+scientific gates the original real-data pipeline failed (physics-embedding
+class separation and non-collapsed representations) now pass with wide
+margins --- versus the results awaiting the full-scale run. Colored markers
+distinguish \measured{measured values} from \pending{pending ones}
+throughout.
+\end{abstract}
+
+% =====================================================================
+\section{Context: what actually failed, and the resulting hypothesis}
+\label{sec:context}
+
+The withdrawn conference paper~\cite{spotorno2026synthesis} proposed
+physics-guided counterfactual fault synthesis via a TS-JEPA latent space, a
+deterministic envelope decoder, a CVAE jitter decoder, and an SDEdit
+loop~\cite{meng2022sdedit} steered by gradients through a frozen healthy-only
+PINN~\cite{spotorno2026linking}. A forensic review of the code and run logs
+established the concrete failure chain on real MaFaulDa data:
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=1pt]
+\item \textbf{Latent collapse.} The TS-JEPA encoder had no anti-collapse
+mechanism; real-data latents collapsed to per-dimension standard deviation
+$\sim\!10^{-6}$, so every train-on-synthetic/test-on-real (TSTR) probe scored
+exactly chance.
+\item \textbf{Physics mismatch.} The PINN's rotor equations and normalization
+were calibrated for a different operating point; residual-feature clustering
+reached silhouette $0.006$--$0.079$, far below the $0.3$ gate.
+\item \textbf{Silent physics bypass.} The reported ``physics-informed''
+results were produced with \code{ORACLE\_MODE="raw"} --- the feature extractor
+applied to raw signals, no PINN in the loop.
+\item \textbf{Degenerate guidance.} The SDEdit implementation computed
+$t_{\mathrm{start}} = \lfloor \text{n\_infer} \times \text{strength} \rfloor
+= \lfloor 10 \times 0.1062\rfloor = 1$: the ``guided diffusion'' performed a
+single reverse step. The penalty was an MSE to a class-mean embedding, not
+the Mahalanobis density the paper described; no covariance existed in the
+repository.
+\end{enumerate}
+
+The extension reframes the salvageable observation --- impulsive faults
+reproduced well, multi-harmonic faults poorly --- as a hypothesis:
+
+\paragraph{Hypothesis (H).} \emph{In density-guided synthesis steered toward
+a target distribution in a physics-informed embedding space, fidelity is
+primarily determined by the compatibility between the fault's true cluster
+geometry and the distributional form assumed by the guidance density
+estimator, rather than by backbone capacity or guidance strength; to first
+order this relationship is invariant to the generative backbone.}
+
+\paragraph{Why synthetic-first.} On real data, cluster geometry $\Gng_y$ is
+observational and confounded. On a simulated system we \emph{manipulate} it:
+classes are constructed whose embedding clusters are unimodal-Gaussian,
+bimodal, heavy-tailed, skewed, elongated, or ring-shaped by design
+(Sec.~\ref{sec:dial}), turning the primary test (C3) from a correlation
+study into a near-causal experiment. Real MaFaulDa remains a config flag
+(\code{dataset=mafaulda}) for the subsequent phase.
+
+% =====================================================================
+\section{The \code{mafaulda\_synthetic} benchmark}
+\label{sec:benchmark}
+
+\subsection{Healthy physics: one source of truth}
+A two-mass, two-plane lumped rotor-bearing model in deviation coordinates
+around static equilibrium:
+\begin{align}
+M_2\ddot{x}_2 + D_2\dot{x}_2 + K_1 x_2 + K_c(x_2-x_3) &= M_1\omega^2 E_1\cos(\omega t + \varphi_0),\nonumber\\
+M_2\ddot{y}_2 + D_2\dot{y}_2 + K_{1y}(t)\, y_2 + K_c(y_2-y_3) &= M_1\omega^2 E_1\sin(\omega t + \varphi_0),\nonumber\\
+M_3\ddot{x}_3 + D_3\dot{x}_3 + K_2 x_3 + K_c(x_3-x_2) &= 0,\nonumber\\
+M_3\ddot{y}_3 + D_3\dot{y}_3 + K_2 y_3 + K_c(y_3-y_2) &= F_{\mathrm{imp}}(t).
+\label{eq:ode}
+\end{align}
+Healthy regime: $\varphi_0=0$, isotropic constant $K_{1y}\equiv K_1$,
+$F_{\mathrm{imp}}\equiv 0$. Observables are the four accelerations
+$(\ddot{x}_2,\ddot{y}_2,\ddot{x}_3,\ddot{y}_3)$ --- the same four-channel
+format as processed MaFaulDa. Both the simulator (batched RK4, $2\times$
+oversampled, initialized at the closed-form harmonic steady state) and the
+PINN residual loss import Eq.~\eqref{eq:ode} from the same module
+(\code{src/physics/rotor\_model.py}), so ``the PINN can fit the data'' holds
+\emph{by construction} --- the property the real-data attempt never had.
+Nominal parameters place the structural modes at
+\measured{162 and 202\,Hz} with damping ratio $\approx 0.04$; a detuned
+``machine B'' variant supports the cross-dataset experiment E4.
+
+\subsection{Measurement model and windowing}
+$\x = \x_{\mathrm{clean}} + \boldsymbol{\varepsilon}$, where
+$\x_{\mathrm{clean}}$ is the ODE acceleration and $\boldsymbol{\varepsilon}$
+is broadband Gaussian noise (5\% of healthy RMS) plus a 5\,kHz hum (10\%),
+both stored separately (exact ground truth for disentanglement experiments).
+Sampling: $f_s = 50$\,kHz, $T=4167$ samples ($=$ one revolution at the
+slowest speed), speeds $\{12, 16, 20\}$\,Hz with $\pm 0.5\%$ per-window
+jitter, keyphasor-aligned windows, independent draws per window (no temporal
+leakage between splits by construction). Velocity/position inputs for the
+PINN are derived from acceleration by \emph{synchronous} integration
+(offset removal over an integer number of revolutions using the measured
+$\omega$) --- identical at training and guidance time.
+
+\subsection{The geometry dial}
+\label{sec:dial}
+Seven classes; each is a physical mechanism \emph{plus a sampling law over
+its fault parameters}; the sampling law shapes the class's embedding-cluster
+geometry:
+
+\begin{table}[h]\centering\small
+\begin{tabular}{llll}
+\toprule
+\# & Class & Mechanism / sampling law & Designed geometry\\
+\midrule
+0 & \code{healthy} & nominal & tight unimodal\\
+1 & \code{imbalance\_uni} & $\kappa\!\sim\!\mathcal{N}(6,0.3)$ on $E_1$ & unimodal (low $\Gng$)\\
+2 & \code{imbalance\_bi} & $(\kappa,\varphi_0)\!\sim\!\tfrac12\mathcal{N}((4,0))+\tfrac12\mathcal{N}((9,\tfrac{\pi}{2}))$ & bimodal (high $\Gng$)\\
+3 & \code{bpfo\_impulsive} & impact train, amp $\sim$ LogNormal & heavy-tailed\\
+4 & \code{misalign\_cont} & $K_{1y}$ anisotropy $+2X$, $s\!\sim\!U(0.05,0.5)$ & elongated continuum\\
+5 & \code{looseness\_skew} & $K_{1y}$ dropouts, duty $\sim$ Beta$(2,8)$ & skewed\\
+6 & \code{combo\_ring} & $\kappa=6$, $\varphi_0\!\sim\!U(0,2\pi)$ & ring manifold\\
+\bottomrule
+\end{tabular}
+\caption{Classes 1 and 2 share the mechanism and differ \emph{only} in the
+sampling law --- the matched pair at the heart of H.}
+\end{table}
+
+% =====================================================================
+\section{The corrected pipeline}
+\label{sec:pipeline}
+
+\textbf{Representation.} TS-JEPA~v2: masked latent prediction plus explicit
+anti-collapse --- a VICReg-style variance/covariance penalty on the pooled
+$\z\in\mathbb{R}^{128}$ (always on) and an optional SIGReg/Epps--Pulley
+term~\cite{balestriero2025lejepa} for the A2 arm. Decoder~1 reconstructs the
+\emph{clean} envelope (ground truth available); Decoder~2 is a conditional
+VAE~\cite{sohn2015cvae} on the jitter residual with an optional
+$\beta$-TCVAE total-correlation penalty~\cite{chen2018isolating} (E1 arm).
+
+\textbf{Physics-informed embedding.} The frozen healthy-only PINN maps a
+window to 12 channels --- 4 corrective forces, 4 physics residuals of
+Eq.~\eqref{eq:ode} evaluated on the measured kinematics, 4 data residuals ---
+which a fully differentiable feature extractor (9 time statistics, 256 FFT
+magnitudes, Haar wavelet statistics per channel; $F=3360$) followed by an
+\emph{unwhitened} PCA projection maps to $\bv\in\mathbb{R}^{32}$. (Whitening
+was measured to destroy class separation, silhouette $0.42\!\to\!0.17$;
+density estimators handle scale internally.) A diagnostic
+\code{oracle.mode=raw} bypass still exists, but every artifact it touches is
+tagged \code{bypass=true} in the run manifest and the report aggregator
+refuses to mix such rows into headline tables --- the guardrail that makes
+failure~(3) of Sec.~\ref{sec:context} structurally unrepeatable.
+
+\textbf{Guidance densities (the estimator family of H).} A common interface
+(\code{fit}, differentiable \code{log\_prob}/\code{penalty},
+\code{held\_out\_ll}) with three members: single Gaussian with Ledoit--Wolf
+shrinkage~\cite{ledoit2004well} (the Mahalanobis penalty the withdrawn paper
+\emph{claimed}), a full-covariance GMM with BIC-selected $k\le 4$, and a
+RealNVP normalizing flow~\cite{papamakarios2021normalizing} that refuses to
+fit below 20 samples and records a Gaussian fallback (a B3 finding, not a
+silent failure).
+
+\textbf{Corrected guided SDEdit (ours backbone).}
+$t_0 = \lfloor t_{0,\mathrm{frac}} \cdot 1000\rfloor$ on the \emph{training}
+schedule (default 500); DDIM~\cite{song2021ddim} sub-sampled schedule of
+$n_{\mathrm{infer}}$ steps; every $N$ steps a guidance event computes
+$\mathcal{L} = -\log q_y\!\big(\Feat(\PINN(\mathcal{D}_1(\z_t)))\big)$ and
+applies the norm-clipped gradient after the DDIM step; per-step penalty and
+gradient norms are logged (StepTrace, feeds D3). The diffusion operates on
+\emph{standardized} latents (scale factor stored with the checkpoint) ---
+without this the reverse process measurably drifted off-manifold.
+
+\textbf{External backbones.} A signal-space conditional VAE (independent
+mechanism; consumes guidance by density-weighted resampling) and a
+FaultDiffusion-style~\cite{xu2025faultdiffusion} few-shot model (frozen
+healthy-only diffusion backbone plus per-class low-rank difference adapters;
+reimplemented --- no public code exists --- with the shared-latent-space
+confound documented).
+
+\begin{table}[h]\centering\small
+\begin{tabular}{p{0.31\textwidth}p{0.33\textwidth}p{0.27\textwidth}}
+\toprule
+Withdrawn-implementation defect & Fix & Evidence\\
+\midrule
+$t_{\mathrm{start}}=1$ (guidance effectively off) & $t_0$ on training schedule; DDIM sub-schedule & sanity gates, Sec.~\ref{sec:validated}\\
+MSE-to-mean ``guidance'' & density family $-\log q_y$, Ledoit--Wolf/GMM/Flow & unit tests order estimators correctly on designed toys\\
+JEPA latent collapse & VICReg var/cov (+SIGReg arm) & \measured{$\sigma_z = 0.71$, eff.\ rank 18.9}\\
+Silent \code{raw} bypass & manifest \code{bypass} tag + aggregator refusal & enforced in \code{run.py report}\\
+TSTR pseudo-labels via centroids, latent-space probes & labels from generation condition; fixed signal-space feature map; 3 probes & metric unit tests (TSTR$=$oracle when gen$=$real)\\
+Raw diffusion on unscaled latents & standardized latent space & round-trip gate, Sec.~\ref{sec:validated}\\
+Hand-copied results & \code{run.json} manifests, tables regenerate from cells & \code{report/REPORT.md}\\
+\bottomrule
+\end{tabular}
+\caption{Defect-to-fix traceability.}
+\label{tab:fixes}
+\end{table}
+
+% =====================================================================
+\section{Experimental design and pre-registered rules}
+\label{sec:design}
+
+\textbf{Operationalization.} For each (class, speed) cell,
+$\Gng_y$ is computed on the real (simulated) windows' embeddings in the
+cluster's own top-8 principal subspace, with three statistics reported:
+Henze--Zirkler~\cite{henze1990class} (primary), Mardia
+skewness/kurtosis~\cite{mardia1970measures}, and the Epps--Pulley energy
+statistic (the SIGReg objective). Fidelity per cell: per-class
+MMD~\cite{gretton2012kernel} between generated and real test windows
+(primary) and per-class TSTR recall~\cite{esteban2017real}, with TSTR
+computed on a fixed backbone-agnostic feature map of raw windows, labels
+taken from the generation condition, probes $\in$ \{logistic, 1-NN,
+RBF-SVM\}, and the oracle trained on real data.
+
+\textbf{Blocks.} A: disentanglement controls ($I(\z;\boldsymbol{\varepsilon})$
+via MINE~\cite{belghazi2018mine} against a plain-AE baseline; SIGReg arm;
+envelope/jitter spectral coherence). B (core): estimator $\times$ backbone
+$\times$ class $\times$ speed $\times$ seed factorial, plus the few-shot
+sweep $n\in\{5,10,20,50,100\}$ with held-out log-likelihood reported per fit
+(bias-vs-variance confound control). C: geometry characterization and
+\textbf{C3}, the primary geometry$\to$fidelity correlation. D: guidance
+interval, $t_0$, gradient-norm diagnostic, multi-speed. E: $\beta$-TCVAE,
+latent modality/class-conditional capacity intervention, open-set synthesis
+by density interpolation (with distance to the \emph{true} held-out cluster
+--- measurable only on synthetic data), cross-machine zero-shot. F:
+multi-seed benchmark, probe-sensitivity, causal ablation (unguided and
+wrong-target-guided controls).
+
+\textbf{Decision rules (pre-registered, encoded in
+\code{src/evaluation/correlate.py}).} H is supported per condition if the
+Spearman correlation between $\Gng_y$ and fidelity across (class, speed)
+cells satisfies $|\rho|\ge 0.4$ with consistent sign; backbone invariance is
+graded (a) comparable sign and strength across backbones, (b) same sign only,
+(c) single-backbone; otherwise rejected. Capacity/strength interventions
+(D1, E2) must \emph{fail} to close the high-$\Gng_y$ gap for the causal
+reading to stand.
+
+% =====================================================================
+\section{Validation results already in hand}
+\label{sec:validated}
+
+All numbers below are \measured{measured} (reduced-scale configuration
+\code{gate\_v2}: 100/50/80 windows per class$\times$speed, three speeds,
+single seed unless noted) and reproducible from run manifests.
+
+\subsection{Instrument soundness (unit-level, 32 automated tests)}
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+\item Simulator satisfies its own healthy equations to \measured{$<10^{-6}$}
+relative residual; steady-state amplitude matches the closed-form frequency
+response to \measured{$<1\%$}; structural modes inside $[80,400]$\,Hz.
+\item Synchronously derived kinematics keep the healthy residual below
+\measured{$0.05\%$} of the forcing amplitude at all three speeds
+(measured \measured{$0.03\%$}); fault classes exceed the healthy residual by
+\measured{$>100\times$}.
+\item Dataset generation is bit-deterministic given (config, seed); spectral
+signatures verified (1X boost for imbalance, 2--3\,kHz band for BPFO, $2X$
+for misalignment).
+\item Guidance estimators: GMM and Flow beat the Gaussian by $>1$ nat
+held-out log-likelihood on designed bimodal toys; all penalties
+differentiate; $n=5$ fits do not crash; the flow's few-shot fallback engages.
+\item Metric sanity: TSTR $=$ oracle when generated $=$ real; MMD $\to 0$ on
+identical distributions; $\Gng$ orders Gaussian $<$ bimodal; the C3
+correlation and invariance-grading machinery recover a planted effect.
+\item MINE recovers the analytic MI of correlated Gaussians within
+\measured{$0.25$ nats} and $\approx 0$ for independent pairs.
+\end{itemize}
+
+\subsection{Gate 1: the physics-informed embedding separates classes}
+The gate the real-data pipeline failed (silhouette $0.006$--$0.079$) now
+passes with margin: per-speed silhouette \measured{$0.436$} (gate: $\ge
+0.3$), 5-NN accuracy \measured{$0.974$} (gate: $\ge 0.9$), PINN validation
+data-MSE \measured{$0.0033$} (standardized units).
+
+\subsection{Gate 2: the geometry dial produces its designed ordering}
+Henze--Zirkler $\Gng_y$ per class (mean over speeds, class-local subspace):
+
+\begin{center}\small
+\begin{tabular}{lccccccc}
+\toprule
+ & healthy & misalign & bpfo & loose & ring & uni & bi\\
+\midrule
+$\Gng_y$ (HZ) & \measured{1.28} & \measured{2.20} & \measured{3.05} &
+\measured{4.26} & \measured{4.56} & \measured{8.19} & \measured{17.55}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+All pre-registered dial checks pass: healthy most Gaussian, bimodal least,
+matched pair \code{bi}$>$\code{uni} at every speed, and an
+\measured{$8\times$} spread across fault classes --- ample variance in the
+independent variable of H. (Note: \code{imbalance\_uni} measures higher than
+naively designed because the $(\kappa,\omega)$ response manifold curves near
+resonance; reducing speed jitter to $\pm0.5\%$ bounded but did not eliminate
+this. The matched-pair contrast that H needs is preserved.)
+
+\subsection{Component and mechanism checks}
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+\item TS-JEPA v2 does not collapse: validation $\sigma_z=$
+\measured{$0.71$} per dimension, effective rank \measured{$18.9$}
+(v1 on real data: $\sigma_z\sim 10^{-6}$).
+\item Decoder~1 keeps \measured{$3.4\%$} of output energy above 4\,kHz
+(envelope excludes the jitter band); Decoder~2's KL term is
+\measured{$5.96 > 0$} (non-collapsed posterior).
+\item Guided SDEdit, causal direction: with $t_0$-fraction $0.05$ the
+unguided edit round-trips at the reconstruction floor (MSE
+\measured{$1.3$} vs.\ \measured{$0.26$} direct reconstruction $+$ jitter
+variance); guidance toward \code{imbalance\_uni} monotonically decreases the
+penalty (\measured{$582\to119$}) and grows the 1X spectral line from
+\measured{$77\mathrm{k}$} (healthy) to \measured{$271\mathrm{k}$}
+(vs.\ \measured{$150\mathrm{k}$} unguided) --- the guidance signal steers the
+physically correct feature, which the withdrawn implementation could not do.
+\item End-to-end: all six blocks execute and write analysis-ready cells at
+smoke and reduced scale; at reduced scale (60-epoch training, 50 generated
+windows/class, untuned $t_0$/scale) the TSTR/oracle ratio is
+\measured{$0.29$} with oracle accuracy \measured{$0.97$} --- reported here
+only as an execution proof, not as evidence about H.
+\end{itemize}
+
+% =====================================================================
+\section{Results awaiting the full-scale run}
+\label{sec:pending}
+
+The overnight command (Sec.~\ref{sec:repro}) executes the full factorial.
+Its outputs decide the paper's claims:
+
+\begin{center}\small
+\begin{tabular}{p{0.42\textwidth}p{0.16\textwidth}p{0.34\textwidth}}
+\toprule
+Result & Source & Feeds\\
+\midrule
+C3 correlations $\rho(\Gng_y,\mathrm{MMD})$, per estimator and backbone,
+with bootstrap CIs & \code{block-c} & \pending{the H verdict and the
+invariance grade (a/b/c/rejected)}\\
+Estimator ladder: does GMM/Flow recover fidelity \emph{in proportion to}
+$\Gng_y$? & \code{block-b} & \pending{prediction (iii) of H}\\
+Few-shot curves with held-out LL & \code{block-b} (B3) & \pending{bias-vs-variance
+separation}\\
+Guidance-interval and $t_0$ cost--fidelity frontiers; $\|\mathbf{g}_t\|$
+vs.\ $\Gng_y$ & \code{block-d} & \pending{capacity/strength alternative
+ruled in or out; D3 mechanism}\\
+$I(\z;\boldsymbol{\varepsilon})$ JEPA vs.\ AE; SIGReg arm; leakage
+coherence & \code{block-a} & \pending{confound controls for C3}\\
+$\beta$-TCVAE and class-conditional-LDM arms & \code{block-e} & \pending{capacity
+interventions (E1/E2)}\\
+Open-set distance-to-true-cluster and open-space risk; variant-B zero-shot
+TSTR & \code{block-e} & \pending{E3/E4 exploratory sections}\\
+Multi-seed benchmark table (3 backbones $\times$ 3 probes, CIs); probe
+consistency; guided vs.\ unguided vs.\ wrong-target & \code{block-f} &
+\pending{F1/F2/F3 tables}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Interpretation is pre-committed: if $|\rho|<0.4$ or signs are inconsistent,
+H is rejected per condition and the paper reports the estimator ablation,
+benchmark, and validated instrument as the contributions (the proposal's
+``either outcome is publishable'' clause).
+
+% =====================================================================
+\section{Reproducibility}
+\label{sec:repro}
+
+Single entry point; every run writes a manifest (resolved config, git SHA,
+seed, outputs); headline tables regenerate from manifests only.
+
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+\item Tests: \code{python -m pytest} (32 tests).
+\item Smoke: \code{python run.py smoke-all} ($\sim$10 min, every stage and block).
+\item Full run (resumable; progress and ETA in
+\code{results/full\_v1/PROGRESS.md}):\\[2pt]
+\code{python run.py full-run experiment=full\_v1 data.version=full1
+sdedit.guidance\_interval=5 eval.n\_gen\_per\_class=100 eval.seeds=[0,1,2]
+pinn.epochs=150}
+\item Aggregation: \code{python run.py report} (bypass-tagged rows excluded).
+\end{itemize}
+
+% =====================================================================
+\section{Next steps to the paper}
+\label{sec:next}
+
+(1)~Execute the full run; read \code{report/H\_decision} outputs
+(\code{block\_c} manifest) against Sec.~\ref{sec:design}'s rules.
+(2)~If compute allows, extend seeds to five and add the per-speed-trained D4
+arms. (3)~Produce figures from the cells (geometry-dial UMAP grid, C3
+scatter, B3 curves, D frontiers). (4)~Write the journal manuscript: the
+methods and validation sections map directly onto
+Secs.~\ref{sec:benchmark}--\ref{sec:validated} of this report; the results
+section instantiates Sec.~\ref{sec:pending}. (5)~Only then begin the
+real-MaFaulDa phase via \code{dataset=mafaulda}
+(\code{docs/REAL\_DATA\_SWITCH.md}), reusing the identical experiment
+drivers.
+
+\bibliographystyle{plain}
+\bibliography{extension_report}
+
+\end{document}

@@ -12,6 +12,8 @@ Commands:
   train-dec1        P2.2   train-dec2  P2.3   train-ldm  P3.1
   train-all         everything above in order
   block-a .. block-f   experiment blocks
+  full-run          everything in order with stage progress + ETA
+                    (results/<exp>/PROGRESS.md); resumes past finished stages
   smoke-all         full pipeline + all blocks at smoke sizes
   report            aggregate manifests into report/ (refuses bypass rows)
 """
@@ -112,6 +114,104 @@ def train_all(cfg):
     train_ldm(cfg, bundle)
 
 
+def full_run(cfg, resume: bool = True):
+    """Everything, in order, with stage-level progress + ETA in
+    results/<experiment>/PROGRESS.md. `resume=True` skips training stages
+    whose artifacts already exist and blocks that already produced output."""
+    import time
+
+    from src.data import get_dataset
+    from src.training import get_artifact, train_decoder1, train_decoder2, \
+        train_jepa, train_ldm, train_oracle, train_pinn
+    import src.experiments as ex
+
+    prog_path = Path(cfg.results_root) / cfg.experiment / "PROGRESS.md"
+    prog_path.parent.mkdir(parents=True, exist_ok=True)
+    state: list[dict] = []
+
+    def flush(eta_note=""):
+        lines = [f"# full-run progress — experiment `{cfg.experiment}`",
+                 f"updated {time.strftime('%Y-%m-%d %H:%M:%S')}  {eta_note}", ""]
+        for s in state:
+            lines.append(f"- [{'x' if s['done'] else ' '}] {s['name']}"
+                         + (f" — {s['mins']:.1f} min" if s["done"] else
+                            (" — RUNNING" if s.get("running") else "")))
+        prog_path.write_text("\n".join(lines), encoding="utf-8")
+
+    def has_artifact(name):
+        try:
+            return get_artifact(cfg, name).exists()
+        except (KeyError, FileNotFoundError):
+            return False
+
+    def has_block(letter):
+        """A block counts as done if one of its run dirs logged outputs."""
+        base = Path(cfg.results_root) / cfg.experiment
+        if not base.exists():
+            return False
+        for p in base.iterdir():
+            if p.is_dir() and p.name.startswith(f"block_{letter}_") \
+                    and (p / "run.json").exists():
+                if json.loads((p / "run.json").read_text()).get("outputs"):
+                    return True
+        return False
+
+    bundle_holder = {}
+
+    def bundle():
+        if "b" not in bundle_holder:
+            bundle_holder["b"] = get_dataset(cfg.data)
+        return bundle_holder["b"]
+
+    def block_c_with_b_cells(_cfg):
+        base = Path(cfg.results_root) / cfg.experiment
+        bdirs = sorted(p for p in base.iterdir()
+                       if p.is_dir() and p.name.startswith("block_b_")
+                       and (p / "cells.csv").exists())
+        cells = str(bdirs[-1] / "cells.csv") if bdirs else None
+        return ex.run_block_c(_cfg, cells_csv=cells)
+
+    stages = [
+        ("generate-data", lambda c: get_dataset(c.data), lambda: False),
+        ("train-pinn", lambda c: train_pinn(c, bundle()), lambda: has_artifact("pinn")),
+        ("train-oracle", lambda c: train_oracle(c, bundle()),
+         lambda: has_artifact("oracle")),
+        ("verify-geometry", verify_geometry, lambda: False),
+        ("train-jepa", lambda c: train_jepa(c, bundle()), lambda: has_artifact("jepa")),
+        ("train-dec1", lambda c: train_decoder1(c, bundle()),
+         lambda: has_artifact("dec1")),
+        ("train-dec2", lambda c: train_decoder2(c, bundle()),
+         lambda: has_artifact("dec2")),
+        ("train-ldm", lambda c: train_ldm(c, bundle()), lambda: has_artifact("ldm")),
+        ("block-a", ex.run_block_a, lambda: has_block("a")),
+        ("block-b", ex.run_block_b, lambda: has_block("b")),
+        ("block-c", block_c_with_b_cells, lambda: has_block("c")),
+        ("block-d", ex.run_block_d, lambda: has_block("d")),
+        ("block-e", ex.run_block_e, lambda: has_block("e")),
+        ("block-f", ex.run_block_f, lambda: has_block("f")),
+        ("report", report, lambda: False),
+    ]
+    state.extend({"name": n, "done": False, "mins": 0.0} for n, _, _ in stages)
+    flush()
+    t_start = time.time()
+    for i, (name, fn, skip) in enumerate(stages):
+        if resume and skip():
+            print(f"===== [{i+1}/{len(stages)}] {name}: SKIP (already done)", flush=True)
+            state[i]["done"] = True
+            flush()
+            continue
+        print(f"===== [{i+1}/{len(stages)}] {name}: START "
+              f"{time.strftime('%H:%M:%S')} =====", flush=True)
+        state[i]["running"] = True
+        flush()
+        t0 = time.time()
+        fn(cfg)
+        state[i].update(done=True, running=False, mins=(time.time() - t0) / 60)
+        flush(f"(total elapsed {((time.time() - t_start) / 3600):.1f} h)")
+        print(f"===== {name}: DONE in {state[i]['mins']:.1f} min =====", flush=True)
+    print(f"FULL-RUN COMPLETE - see report/REPORT.md and {prog_path}", flush=True)
+
+
 def report(cfg):
     """P5.1 aggregator: read manifests + cells, refuse bypass in headlines."""
     import pandas as pd
@@ -195,6 +295,8 @@ def main():
             print(f"=== block {blk} ===")
             getattr(ex, f"run_block_{blk}")(cfg)
         print("SMOKE-ALL COMPLETE")
+    elif cmd == "full-run":
+        full_run(cfg)
     elif cmd == "report":
         report(cfg)
     else:

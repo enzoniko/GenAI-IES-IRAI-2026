@@ -73,3 +73,5 @@ OMO/
 results*/
 data/processed-*/
 report/
+logs_*.log
+.pytest_cache/

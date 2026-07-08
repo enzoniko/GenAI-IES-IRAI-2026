@@ -9,6 +9,9 @@ Bypass runs (oracle.mode == 'raw') are tagged bypass=True on every row.
 """
 from __future__ import annotations
 
+import sys
+import time
+
 import numpy as np
 import pandas as pd
 import torch
@@ -19,6 +22,28 @@ from src.data import get_dataset
 from src.evaluation import per_class_mmd, signal_features, tstr
 from src.oracle import make_guidance
 from src.training import load_features, load_oracle
+
+
+class Progress:
+    """Cell-level progress with elapsed/ETA, printed unbuffered so overnight
+    logs show live status (`Get-Content log -Tail 20 -Wait`)."""
+
+    def __init__(self, total: int, label: str):
+        self.total, self.label = total, label
+        self.done = 0
+        self.t0 = time.time()
+
+    def tick(self, detail: str = "") -> None:
+        self.done += 1
+        el = time.time() - self.t0
+        eta = el / self.done * (self.total - self.done)
+        print(f"[{self.label}] {self.done}/{self.total} "
+              f"elapsed {_hms(el)} eta {_hms(eta)} {detail}", flush=True)
+
+
+def _hms(s: float) -> str:
+    s = int(s)
+    return f"{s // 3600}:{s % 3600 // 60:02d}:{s % 60:02d}"
 
 
 class Context:

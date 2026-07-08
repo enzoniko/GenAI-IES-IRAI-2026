@@ -21,7 +21,7 @@ from src.evaluation import (
 from src.training import (
     load_decoder1, load_decoder2, load_jepa, train_decoder2, train_jepa,
 )
-from .engine import Context, generate_and_score, save_cells
+from .engine import Context, Progress, generate_and_score, save_cells
 
 ESTIMATORS = ("gaussian", "gmm", "flow")
 BACKBONE_NAMES = ("ours", "cvae", "faultdiff")
@@ -121,6 +121,10 @@ def run_block_b(cfg: RunCfg, backbones=BACKBONE_NAMES, estimators=ESTIMATORS,
     rows = []
     speeds = ctx.speeds
     seeds = list(cfg.eval.seeds)
+    b3_seeds = seeds[: min(3, len(seeds))]
+    total = (len(backbones) * len(estimators) * len(speeds) * len(seeds)
+             + len(estimators) * len(fewshot_sweep) * len(b3_seeds))
+    prog = Progress(total, "block_b")
     # B1/B2: estimator x backbone x class x speed x seed
     for bb in backbones:
         for est in estimators:
@@ -129,15 +133,17 @@ def run_block_b(cfg: RunCfg, backbones=BACKBONE_NAMES, estimators=ESTIMATORS,
                     r, _ = generate_and_score(ctx, bb, est, sp, seed)
                     rows.extend(r)
                     save_cells(rows, run.file("cells.csv"))
+                    prog.tick(f"{bb}/{est}/sp{sp:g}/s{seed}")
     # B3: few-shot sensitivity (home speed, primary backbone, all estimators)
     home = 16.0 if 16.0 in speeds else speeds[0]
     for est in estimators:
         for n_fs in fewshot_sweep:
-            for seed in seeds[: min(3, len(seeds))]:
+            for seed in b3_seeds:
                 r, _ = generate_and_score(ctx, backbones[0], est, home, seed,
                                           n_fewshot=n_fs)
                 rows.extend(r)
                 save_cells(rows, run.file("cells.csv"))
+                prog.tick(f"B3 {est}/n{n_fs}/s{seed}")
     df = save_cells(rows, run.file("cells.csv"))
     run.log(n_rows=len(df), cells=str(run.file("cells.csv")))
     return run
@@ -206,6 +212,8 @@ def run_block_d(cfg: RunCfg, intervals=(1, 2, 5, 10, 25),
     home = 16.0 if 16.0 in ctx.speeds else ctx.speeds[0]
     seeds = cfg.eval.seeds[: min(2, len(cfg.eval.seeds))]
     rows, trace_stats = [], []
+    prog = Progress((len(intervals) + len(t0_fracs) + len(ctx.speeds)) * len(seeds),
+                    "block_d")
     for N in intervals:                                   # D1
         for seed in seeds:
             r, ex = generate_and_score(ctx, "ours", "gaussian", home, seed,
@@ -218,11 +226,13 @@ def run_block_d(cfg: RunCfg, intervals=(1, 2, 5, 10, 25),
                                     "grad_norm_std": float(np.std(tr.grad_norm)),
                                     "penalty_start": tr.penalty[0],
                                     "penalty_end": tr.penalty[-1]})
+            prog.tick(f"D1 N={N}/s{seed}")
     for t0 in t0_fracs:                                   # D2
         for seed in seeds:
             r, ex = generate_and_score(ctx, "ours", "gaussian", home, seed,
                                        sdedit_overrides={"t0_frac": t0})
             rows.extend(r)
+            prog.tick(f"D2 t0={t0}/s{seed}")
     df = save_cells(rows, run.file("cells.csv"))
     tdf = pd.DataFrame(trace_stats)
     tdf.to_csv(run.file("d3_traces.csv"), index=False)
@@ -243,6 +253,7 @@ def run_block_d(cfg: RunCfg, intervals=(1, 2, 5, 10, 25),
         for seed in seeds:
             r, _ = generate_and_score(ctx, "ours", "gaussian", sp, seed)
             d4_rows.extend(r)
+            prog.tick(f"D4 sp{sp:g}/s{seed}")
     save_cells(d4_rows, run.file("d4_cells.csv"))
     run.log(d3_gradnorm_vs_mmd=d3, n_rows=len(df), n_d4_rows=len(d4_rows))
     return run
@@ -343,19 +354,24 @@ def run_block_f(cfg: RunCfg, backbones=BACKBONE_NAMES) -> RunDir:
     ctx = Context(cfg)
     home = 16.0 if 16.0 in ctx.speeds else ctx.speeds[0]
     rows = []
+    f3_seeds = cfg.eval.seeds[: min(3, len(cfg.eval.seeds))]
+    prog = Progress(len(backbones) * len(cfg.eval.seeds) + 2 * len(f3_seeds), "block_f")
     # F1: multi-seed benchmark (gaussian guidance for every backbone)
     for bb in backbones:
         for seed in cfg.eval.seeds:
             r, _ = generate_and_score(ctx, bb, "gaussian", home, seed)
             rows.extend(r)
             save_cells(rows, run.file("cells.csv"))
+            prog.tick(f"F1 {bb}/s{seed}")
     # F3: causal ablation on ours — no guidance / wrong-target guidance
-    for seed in cfg.eval.seeds[: min(3, len(cfg.eval.seeds))]:
+    for seed in f3_seeds:
         r, _ = generate_and_score(ctx, "ours", None, home, seed)
         rows.extend(r)
+        prog.tick(f"F3 unguided/s{seed}")
         r, _ = generate_and_score(ctx, "ours", "gaussian", home, seed,
                                   wrong_target=True)
         rows.extend(r)
+        prog.tick(f"F3 wrong-target/s{seed}")
     df = save_cells(rows, run.file("cells.csv"))
     # F2: probe sensitivity — do conclusions flip across probes?
     f1 = df[(df["estimator"] == "gaussian") & (~df.get("wrong_target", False))]

@@ -1,0 +1,9 @@
+# Core (validated with Python 3.12, torch 2.9 + CUDA)
+torch>=2.2
+numpy
+scipy
+scikit-learn
+pandas
+matplotlib
+pyyaml
+pytest
